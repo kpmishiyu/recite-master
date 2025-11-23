@@ -31,11 +31,10 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X // 确保引入了 X 图标用于移除
+  LogIn, ChevronRight, X
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// ⚠️⚠️⚠️ 这里的配置是您的私人配置，请勿泄露 ⚠️⚠️⚠️
 const firebaseConfig = {
  apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
  authDomain: "recite-master.firebaseapp.com",
@@ -153,12 +152,16 @@ const LoginView = ({ onLogin }) => {
             游客试用
           </button>
         </div>
+        
+        <p className="text-xs text-gray-400 mt-6">
+           登录即代表同意我们的服务条款。
+        </p>
       </div>
     </div>
   );
 };
 
-// 2. Book Component (Supports both Remove and Delete)
+// 2. Book Component
 const BookCard = ({ book, onClick, isOwner, onDelete, onRemove, onEdit, isLibraryMode }) => {
   const colors = [
     'from-blue-400 to-blue-600',
@@ -191,7 +194,6 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onRemove, onEdit, isLibrar
 
       {/* Actions */}
       <div className="absolute -top-3 -right-3 flex flex-col space-y-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* 图书馆模式：如果是作者，显示编辑和删除 */}
         {isLibraryMode && isOwner && (
           <>
             <button 
@@ -211,7 +213,6 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onRemove, onEdit, isLibrar
           </>
         )}
         
-        {/* 我的书架模式：只显示移除 */}
         {!isLibraryMode && (
              <button 
                onClick={(e) => { e.stopPropagation(); onRemove(book.id); }} 
@@ -529,7 +530,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   
     useEffect(() => {
        const list = [];
-       const bookProg = userProgress || {}; // Single book progress passed in
+       const bookProg = userProgress || {}; 
        book.content.forEach(q => {
            const qProg = bookProg[q.id];
            if (qProg && qProg.isMistake) {
@@ -550,11 +551,9 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
        if (!currentQ) return;
        
        if (isFixed) {
-           // Remove mistake flag
            onUpdateProgress(currentQ.id, { isMistake: false }); 
            setMistakes(prev => prev.slice(1)); 
        } else {
-           // Keep mistake flag, move to end
            setMistakes(prev => [...prev.slice(1), currentQ]);
        }
        setCurrentQ(null);
@@ -606,7 +605,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// --- Test Mode (Full Features & Safety) ---
+// --- Test Mode (Full Features) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -908,7 +907,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Optimized Logic with Feedback & No Mistake) ---
+// --- Normal Mode (Optimized Logic) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
@@ -933,8 +932,8 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     const remaining = initialQueue.slice(POOL_SIZE);
     setPendingPool(remaining);
     setActiveQueue(initialActive);
-    if (initialActive.length > 0) loadQuestion(initialActive[0]);
-  }, [book]);
+    if (initialActive.length > 0) { setCurrentQ(initialActive[0]); prepareOptions(initialActive[0]); }
+  }, [book, userProgress]); 
 
   const loadQuestion = (q) => {
      setCurrentQ(q);
@@ -995,7 +994,6 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     if (mastered) {
         if (nextPending.length > 0) nextQueue.push(nextPending.shift());
     } else {
-        // Penalty spacing: push back 2-4 spots
         const insertIndex = newScore === 0 ? Math.min(nextQueue.length, 2) : Math.min(nextQueue.length, 4);
         const updatedQ = { ...currentQ, score: newScore };
         if (insertIndex >= nextQueue.length) nextQueue.push(updatedQ);
@@ -1018,8 +1016,8 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     <div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center p-4">
       <div className="absolute top-4 right-4 flex gap-4"><button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"><Save size={18} /> 退出</button></div>
       <div className="mb-6 flex items-center justify-between text-gray-500 text-sm font-bold">
-         <div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>学习池: {activeQueue.length}</span></div>
-         <div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1: 印象" : currentQ.score === 1 ? "阶段 2: 巩固" : "阶段 3: 回忆"}</span></div>
+         <div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>剩余: {activeQueue.length + pendingPool.length}</span></div>
+         <div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1" : currentQ.score === 1 ? "阶段 2" : "阶段 3"}</span></div>
       </div>
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative">
           <div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div>
@@ -1121,13 +1119,17 @@ export default function App() {
   }, [user]);
 
   const handleCreateBook = async ({ title, password, content }) => {
+    if (user.isAnonymous) {
+        alert("游客无法创建书籍，请登录。");
+        return;
+    }
     try {
         const bookData = {
             title,
             password,
             content,
             ownerId: user.uid,
-            authorName: localStorage.getItem('recite_user_name') || 'User',
+            authorName: user.displayName || user.email?.split('@')[0] || 'User',
             version: 1,
             createdAt: serverTimestamp()
         };
@@ -1145,7 +1147,7 @@ export default function App() {
   };
 
   const handleDeleteBook = async (bookId) => {
-      if(!confirm("确定删除？这将无法恢复。")) return;
+      if(!confirm("确定删除？这将永久删除这本书，且无法恢复。")) return;
       await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'books', bookId));
   };
 
@@ -1156,7 +1158,7 @@ export default function App() {
           alert("密码错误");
           return;
       }
-      const newMyBooks = [bookId, ...myBooks];
+      const newMyBooks = [bookId, ...myBooks.filter(id => id !== bookId)];
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
           myBooks: newMyBooks
       }, { merge: true });
@@ -1172,16 +1174,10 @@ export default function App() {
   const updateProgress = async (bookId, qId, resultObj) => {
       if (!currentBook) return;
       const currentBookProgress = userProgress[bookId] || {};
-      const currentQProgress = currentBookProgress[qId] || {};
-      
-      // If score resets to 0 (wrong), keep previous mistake status unless explicitly cleared
-      const updatedQProgress = { ...currentQProgress, ...resultObj };
-      
       const updatedBookProgress = {
           ...currentBookProgress,
-          [qId]: updatedQProgress
+          [qId]: { ...currentBookProgress[qId], ...resultObj }
       };
-      
       setUserProgress({ ...userProgress, [bookId]: updatedBookProgress });
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
           progress: { ...userProgress, [bookId]: updatedBookProgress }
@@ -1196,13 +1192,6 @@ export default function App() {
                   myBooks: newOrder
               }, { merge: true });
           }
-      }
-      const storedProgress = userProgress[book.id];
-      if (storedProgress && storedProgress._version && storedProgress._version < book.version) {
-          const emptyProg = { _version: book.version };
-           setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
-              progress: { ...userProgress, [book.id]: emptyProg }
-          }, { merge: true });
       }
       setCurrentBook(book);
       setView('mode_select');
@@ -1220,7 +1209,10 @@ export default function App() {
                   <button onClick={() => setView('home')} className={`flex items-center px-3 py-2 text-sm font-medium border-b-2 ${view === 'home' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}><Book className="mr-2" size={20}/> 我的抽背</button>
                   <button onClick={() => setView('find')} className={`flex items-center px-3 py-2 text-sm font-medium border-b-2 ${view === 'find' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}><Search className="mr-2" size={20}/> 寻找抽背书</button>
                </div>
-               <button onClick={() => auth.signOut()} className="text-gray-400 hover:text-red-500"><LogOut size={20}/></button>
+               <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600 font-bold">{user.displayName || user.email?.split('@')[0] || '游客'}</span>
+                  <button onClick={() => auth.signOut()} className="text-gray-400 hover:text-red-500"><LogOut size={20}/></button>
+               </div>
             </div>
           </div>
         </nav>
@@ -1239,24 +1231,9 @@ export default function App() {
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 justify-items-center">
                   {myBooks.map(id => books.find(b => b.id === id)).filter(b => b).map(book => (
                     <div key={book.id} className="relative group">
-                        {/* 关键修改：主页只给移除按钮，不给编辑删除 */}
-                        <BookCard 
-                          book={book} 
-                          isOwner={false} 
-                          isLibraryMode={false}
-                          onClick={() => handleOpenBook(book)} 
-                          onEdit={() => {}} 
-                          onDelete={() => {}} 
-                          onRemove={removeMyBook}
-                        />
-                        {/* 右上角移除按钮 */}
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} 
-                          className="absolute -top-2 -right-2 p-2 bg-white text-gray-400 rounded-full shadow-lg hover:bg-gray-100 hover:text-red-500 border border-gray-100 transition opacity-0 group-hover:opacity-100"
-                          title="从书架移除"
-                        >
-                           <X size={14}/>
-                        </button>
+                        {/* HOME: Only Remove, No Edit/Delete */}
+                        <BookCard book={book} isOwner={false} isLibraryMode={false} onClick={() => handleOpenBook(book)} onEdit={() => {}} onDelete={() => {}} onRemove={removeMyBook} />
+                        <button onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} className="absolute -top-2 -right-2 p-2 bg-white text-gray-400 rounded-full shadow-lg hover:bg-gray-100 hover:text-red-500 border border-gray-100 transition opacity-0 group-hover:opacity-100"><X size={14}/></button>
                     </div>
                   ))}
                </div>
@@ -1286,8 +1263,6 @@ export default function App() {
                     </div>
                     <div className="flex flex-col items-end gap-2 z-10 relative">
                         {isAdded ? (<span className="text-green-500 text-sm font-bold flex items-center"><CheckCircle size={16} className="mr-1"/> 已添加</span>) : (<button onClick={() => { const pwd = book.password ? prompt("请输入本书密码:") : ""; if(book.password && !pwd) return; addMyBook(book.id, pwd); }} className="text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 transition">获取</button>)}
-                        
-                        {/* 关键修改：只有在图书馆且是作者时，才显示编辑删除 */}
                         {isOwner && (
                             <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={(e) => { e.stopPropagation(); setEditTarget(book); setIsEditorOpen(true); }} className="text-gray-400 hover:text-blue-500 p-1"><Edit size={16}/></button>
