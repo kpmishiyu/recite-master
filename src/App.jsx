@@ -31,11 +31,11 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight
+  LogIn, ChevronRight, X // 确保引入了 X 图标用于移除
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// ✅ 已填入您的真实配置
+// ⚠️⚠️⚠️ 这里的配置是您的私人配置，请勿泄露 ⚠️⚠️⚠️
 const firebaseConfig = {
  apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
  authDomain: "recite-master.firebaseapp.com",
@@ -153,17 +153,13 @@ const LoginView = ({ onLogin }) => {
             游客试用
           </button>
         </div>
-        
-        <p className="text-xs text-gray-400 mt-6">
-           登录即代表同意我们的服务条款。
-        </p>
       </div>
     </div>
   );
 };
 
-// 2. Book Component
-const BookCard = ({ book, onClick, isOwner, onDelete, onEdit }) => {
+// 2. Book Component (Supports both Remove and Delete)
+const BookCard = ({ book, onClick, isOwner, onDelete, onRemove, onEdit, isLibraryMode }) => {
   const colors = [
     'from-blue-400 to-blue-600',
     'from-red-400 to-red-600',
@@ -193,24 +189,39 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onEdit }) => {
         </div>
       </div>
 
-      {isOwner && (
-        <div className="absolute -top-3 -right-3 flex flex-col space-y-1 z-20">
-          <button 
-            onClick={(e) => { e.stopPropagation(); onEdit(book); }} 
-            className="p-2 bg-white text-blue-600 rounded-full shadow-lg hover:bg-blue-50 border border-gray-100"
-            title="编辑"
-          >
-            <Edit size={14} />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(book.id); }} 
-            className="p-2 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50 border border-gray-100"
-            title="删除"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      )}
+      {/* Actions */}
+      <div className="absolute -top-3 -right-3 flex flex-col space-y-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* 图书馆模式：如果是作者，显示编辑和删除 */}
+        {isLibraryMode && isOwner && (
+          <>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(book); }} 
+              className="p-2 bg-white text-blue-600 rounded-full shadow-lg hover:bg-blue-50 border border-gray-100"
+              title="编辑书籍"
+            >
+              <Edit size={14} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(book.id); }} 
+              className="p-2 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50 border border-gray-100"
+              title="彻底删除"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
+        
+        {/* 我的书架模式：只显示移除 */}
+        {!isLibraryMode && (
+             <button 
+               onClick={(e) => { e.stopPropagation(); onRemove(book.id); }} 
+               className="p-2 bg-white text-gray-500 rounded-full shadow-lg hover:bg-gray-100 border border-gray-100"
+               title="从书架移除"
+             >
+               <X size={14} />
+             </button>
+        )}
+      </div>
     </div>
   );
 };
@@ -243,7 +254,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
           <div onClick={() => onSelectMode('review')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-green-500 group hover:-translate-y-1">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition"><Clock size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">复习模式</h2>
-            <p className="text-gray-500">针对已掌握的题目。基于记忆曲线，答对后间隔 $2^n$ 天再次出现。</p>
+            <p className="text-gray-500">基于记忆曲线复习。</p>
           </div>
           <div onClick={() => onSelectMode('test')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-teal-500 group hover:-translate-y-1">
             <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition"><FileText size={32} /></div>
@@ -271,7 +282,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   );
 };
 
-// 4. Book Editor (Beautified)
+// 4. Book Editor
 const BookEditor = ({ onClose, onSave, initialData = null }) => {
   const [title, setTitle] = useState(initialData?.title || '');
   const [password, setPassword] = useState(initialData?.password || '');
@@ -289,11 +300,7 @@ const BookEditor = ({ onClose, onSave, initialData = null }) => {
     textArea.style.left = "-9999px";
     document.body.appendChild(textArea);
     textArea.select();
-    try {
-      document.execCommand('copy');
-    } catch (err) {
-      console.error('Fallback: Oops, unable to copy', err);
-    }
+    try { document.execCommand('copy'); } catch (err) {}
     document.body.removeChild(textArea);
   };
 
@@ -599,7 +606,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// --- Test Mode (Re-implemented with Mistake Generation) ---
+// --- Test Mode (Full Features & Safety) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -683,11 +690,9 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
       let correctCount = 0;
       const detail = {};
       
-      // Helper to check correctness and update progress
       const checkAndMark = (qId, isCorrect) => {
           if (isCorrect) correctCount++;
           detail[qId] = isCorrect;
-          // Crucial: If wrong, mark as mistake in global progress
           if (!isCorrect) {
               onUpdateProgress(qId, { isMistake: true });
           }
@@ -716,7 +721,6 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
       else if (ratio >= 0.7) grade = 'B';
       else if (ratio >= 0.6) grade = 'C';
 
-      // Stats by type
       let stats = { matching: {total: config.matching, correct: 0}, mcq: {total: config.mcq, correct: 0}, fill: {total: config.fill, correct: 0} };
       if(testData.matching) testData.matching.left.forEach(item => { if(detail[item.id]) stats.matching.correct++; });
       if(testData.mcq) testData.mcq.forEach(item => { if(detail[item.id]) stats.mcq.correct++; });
@@ -904,30 +908,42 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
+// --- Normal Mode (Optimized Logic with Feedback & No Mistake) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
   const [pendingPool, setPendingPool] = useState([]);
   const [currentQ, setCurrentQ] = useState(null);
+  
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null);
+  const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
+  const [isFinished, setIsFinished] = useState(false);
   
+  // Init
   useEffect(() => {
     let initialQueue = book.content.map(q => {
       const prog = userProgress[q.id] || { score: 0, mastery: false };
       return { ...q, ...prog };
     }).filter(q => !q.mastery); 
+
+    if (initialQueue.length === 0) { setIsFinished(true); return; }
     initialQueue.sort(() => Math.random() - 0.5);
     const initialActive = initialQueue.slice(0, POOL_SIZE);
     const remaining = initialQueue.slice(POOL_SIZE);
     setPendingPool(remaining);
     setActiveQueue(initialActive);
-    if (initialActive.length > 0) { setCurrentQ(initialActive[0]); prepareOptions(initialActive[0]); }
-  }, [book, userProgress]); 
+    if (initialActive.length > 0) loadQuestion(initialActive[0]);
+  }, [book]);
+
+  const loadQuestion = (q) => {
+     setCurrentQ(q);
+     setShowAnswer(false);
+     setQuizFeedback(null);
+     if (q.score < 2) prepareOptions(q);
+  };
 
   const prepareOptions = (q) => {
-    if (!q || q.score >= 2) { setCurrentOptions([]); return; }
     let distractors = [];
     if (q.options && Array.isArray(q.options) && q.options.length >= 3) distractors = q.options.slice(0, 3);
     else {
@@ -939,47 +955,104 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
     setCurrentOptions(all);
   };
-  
-  useEffect(() => { if (currentQ) { setQuizFeedback(null); if (currentQ.score < 2) prepareOptions(currentQ); } }, [currentQ]);
 
+  // Quiz Interaction
   const handleOptionClick = (opt) => {
       if (quizFeedback) return; 
       const isCorrect = opt === currentQ.answer;
       setQuizFeedback({ selected: opt, isCorrect });
-      if (isCorrect) setTimeout(() => handleAnswer(true), 800);
+      if (isCorrect) {
+          setTimeout(() => processResult(true), 800); 
+      }
   };
 
-  const handleAnswer = (isCorrect, unknown = false) => {
+  // Flashcard Interaction
+  const handleFlashcard = (type) => {
+      if (type === 'unknown') {
+          setShowAnswer(true); // Just show answer, DON'T advance
+      } else if (type === 'correct') {
+          processResult(true);
+      } else if (type === 'wrong') {
+          processResult(false);
+      }
+  };
+
+  const processResult = (isCorrect) => {
     if (!currentQ) return;
     let newScore = currentQ.score;
     let mastered = false;
-    // Wrong -> Mistake
-    if (!isCorrect && !unknown) onUpdateProgress(currentQ.id, { isMistake: true });
 
-    if (unknown) newScore = 0; else if (isCorrect) newScore += 1; else newScore = 0; 
+    if (isCorrect) newScore += 1; else newScore = 0; 
     if (newScore >= 3) mastered = true;
+
+    // IMPORTANT: isMistake is NOT set here. Learning is safe.
     onUpdateProgress(currentQ.id, { score: newScore, mastery: mastered, lastReview: Date.now() });
     
     let nextQueue = [...activeQueue];
     let nextPending = [...pendingPool];
-    nextQueue.shift();
-    if (mastered) { if (nextPending.length > 0) nextQueue.push(nextPending.shift()); }
-    else {
-        const priority = newScore === 0 ? 1 : Math.min(nextQueue.length, 2 + Math.floor(Math.random() * 2));
-        if (priority >= nextQueue.length) nextQueue.push({ ...currentQ, score: newScore }); else nextQueue.splice(priority, 0, { ...currentQ, score: newScore });
+    nextQueue.shift(); 
+
+    if (mastered) {
+        if (nextPending.length > 0) nextQueue.push(nextPending.shift());
+    } else {
+        // Penalty spacing: push back 2-4 spots
+        const insertIndex = newScore === 0 ? Math.min(nextQueue.length, 2) : Math.min(nextQueue.length, 4);
+        const updatedQ = { ...currentQ, score: newScore };
+        if (insertIndex >= nextQueue.length) nextQueue.push(updatedQ);
+        else nextQueue.splice(insertIndex, 0, updatedQ);
     }
+
+    if (nextQueue.length === 0) { setIsFinished(true); return; }
+
     setPendingPool(nextPending);
     setActiveQueue(nextQueue);
-    if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); }
+    loadQuestion(nextQueue[0]);
   };
 
-  if (!currentQ) {
-      if (activeQueue.length === 0 && pendingPool.length === 0 && book.content.length > 0) return (<div className="flex flex-col items-center justify-center h-full animate-bounce-in"><Trophy size={80} className="text-yellow-500 mb-4"/><h2 className="text-3xl font-bold text-gray-800">恭喜！已掌握！</h2><button onClick={onExit} className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700">返回书架</button></div>);
-      if (book.content.length === 0) return <div className="flex items-center justify-center h-full">暂无题目</div>;
-      return <div className="flex items-center justify-center h-full">准备中...</div>;
-  }
+  if (isFinished) return (<div className="flex flex-col items-center justify-center h-full animate-bounce-in"><Trophy size={80} className="text-yellow-500 mb-4"/><h2 className="text-3xl font-bold text-gray-800">恭喜！本轮已完成！</h2><button onClick={onExit} className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700">返回书架</button></div>);
+  if (!currentQ) return <div className="flex items-center justify-center h-full">准备中...</div>;
+
   const isQuizPhase = currentQ.score < 2;
-  return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center p-4"><div className="absolute top-4 right-4 flex gap-4"><button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"><Save size={18} /> 退出</button></div><div className="mb-6 flex items-center justify-between text-gray-500 text-sm font-bold"><div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>学习池: {activeQueue.length}</span></div><div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1" : currentQ.score === 1 ? "阶段 2" : "阶段 3"}</span></div></div><div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative"><div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div><div className="flex-1 flex items-center justify-center p-8 text-center flex-col"><h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>{!isQuizPhase && showAnswer && (<div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full"><p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p></div>)}</div><div className="p-6 bg-gray-50 border-t border-gray-100">{isQuizPhase ? (<div className="w-full"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">{currentOptions.map((opt, idx) => { let btnClass = "bg-white border-2 border-indigo-50 text-gray-700 font-bold text-lg hover:bg-indigo-50 hover:border-indigo-200"; if (quizFeedback) { if (opt === currentQ.answer) btnClass = "bg-green-100 border-green-500 text-green-800"; else if (opt === quizFeedback.selected && !quizFeedback.isCorrect) btnClass = "bg-red-100 border-red-500 text-red-800"; else btnClass = "opacity-40 border-gray-100 bg-gray-50"; } else { btnClass += " transition transform active:scale-95 shadow-sm"; } return (<button key={idx} onClick={() => handleOptionClick(opt)} disabled={!!quizFeedback} className={`p-4 rounded-xl ${btnClass}`}>{opt}</button>) })}</div>{quizFeedback && !quizFeedback.isCorrect && (<div className="text-center animate-bounce-in p-4 bg-red-50 border border-red-100 rounded-lg"><span className="text-red-500 font-bold text-lg block mb-3">正确答案是：{currentQ.answer}</span><button onClick={() => handleAnswer(false)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition transform active:scale-95">下一题 (记入错题)</button></div>)}</div>) : (!showAnswer ? (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false, true)} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button><button onClick={() => setShowAnswer(true)} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button></div>) : (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 记错了</button><button onClick={() => handleAnswer(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 答案正确 (+1)</button></div>))}</div></div></div>);
+
+  return (
+    <div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center p-4">
+      <div className="absolute top-4 right-4 flex gap-4"><button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"><Save size={18} /> 退出</button></div>
+      <div className="mb-6 flex items-center justify-between text-gray-500 text-sm font-bold">
+         <div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>学习池: {activeQueue.length}</span></div>
+         <div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1: 印象" : currentQ.score === 1 ? "阶段 2: 巩固" : "阶段 3: 回忆"}</span></div>
+      </div>
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative">
+          <div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div>
+          <div className="flex-1 flex items-center justify-center p-8 text-center flex-col"><h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>{!isQuizPhase && showAnswer && (<div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full"><p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p></div>)}</div>
+          <div className="p-6 bg-gray-50 border-t border-gray-100">
+            {isQuizPhase ? (
+               <div className="w-full">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">{currentOptions.map((opt, idx) => { let btnClass = "bg-white border-2 border-indigo-50 text-gray-700 font-bold text-lg hover:bg-indigo-50 hover:border-indigo-200"; if (quizFeedback) { if (opt === currentQ.answer) btnClass = "bg-green-100 border-green-500 text-green-800"; else if (opt === quizFeedback.selected && !quizFeedback.isCorrect) btnClass = "bg-red-100 border-red-500 text-red-800"; else btnClass = "opacity-40 border-gray-100 bg-gray-50"; } else { btnClass += " transition transform active:scale-95 shadow-sm"; } return (<button key={idx} onClick={() => handleOptionClick(opt)} disabled={!!quizFeedback} className={`p-4 rounded-xl ${btnClass}`}>{opt}</button>) })}</div>
+                 {quizFeedback && !quizFeedback.isCorrect && (<div className="text-center animate-bounce-in p-4 bg-red-50 border border-red-100 rounded-lg"><span className="text-red-500 font-bold text-lg block mb-3">正确答案是：{currentQ.answer}</span><button onClick={() => processResult(false)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition transform active:scale-95 flex items-center justify-center mx-auto"><ChevronRight className="mr-1"/> 下一题 (继续复习)</button></div>)}
+               </div>
+            ) : (
+               !showAnswer ? (
+                  <div className="grid grid-cols-2 gap-4"><button onClick={() => handleFlashcard('unknown')} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button><button onClick={() => handleFlashcard('correct')} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button></div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4"><button onClick={() => handleFlashcard('wrong')} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 还是没记住</button><button onClick={() => handleFlashcard('correct')} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 现在记住了</button></div>
+                )
+            )}
+          </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Buzz Mode (Fixed: Exit, Answer, Summary) ---
+const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
+    const [questions, setQuestions] = useState([]); const [idx, setIdx] = useState(-1); const [text, setText] = useState(""); const [buzzed, setBuzzed] = useState(false); const [results, setResults] = useState([]); const [showAnswer, setShowAnswer] = useState(false); const intervalRef = useRef(null);
+    useEffect(() => { const pool = shuffleArray([...book.content]); setQuestions(pool.slice(0, 10)); setIdx(0); }, []);
+    useEffect(() => { if (idx >= 0 && idx < questions.length && !buzzed) { setText(""); let i = 0; const q = questions[idx].question; intervalRef.current = setInterval(() => { setText(q.substring(0, i+1)); i++; if (i === q.length) clearInterval(intervalRef.current); }, 150); } return () => clearInterval(intervalRef.current); }, [idx, questions, buzzed]);
+    const handleBuzz = () => { clearInterval(intervalRef.current); setText(questions[idx].question); setBuzzed(true); setShowAnswer(true); };
+    const handleAnswer = (correct) => { if(!correct) onUpdateProgress(questions[idx].id, { isMistake: true }); setResults([...results, { q: questions[idx], correct }]); setBuzzed(false); setShowAnswer(false); setIdx(idx + 1); };
+    if (idx === -1) return <div>Loading...</div>;
+    if (idx >= questions.length) return (<div className="flex flex-col items-center justify-center h-full p-6 animate-fade-in"><h2 className="text-3xl font-bold mb-6 text-gray-800">挑战结束</h2><div className="text-6xl font-black text-indigo-600 mb-2">{results.filter(r=>r.correct).length} / {questions.length}</div><p className="text-gray-400 mb-8">错题已加入错题突击列表</p><div className="w-full max-w-md bg-white rounded-xl shadow overflow-y-auto max-h-60 mb-8">{results.map((res, i) => (<div key={i} className={`p-3 border-b flex justify-between items-center ${res.correct ? 'bg-green-50' : 'bg-red-50'}`}><span className="truncate w-3/4 text-sm">{res.q.question}</span>{res.correct ? <CheckCircle size={16} className="text-green-600"/> : <XCircle size={16} className="text-red-600"/>}</div>))}</div><button onClick={onExit} className="px-8 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg">完成</button></div>);
+    return (<div className="flex flex-col h-full justify-center items-center p-4 relative"><button onClick={onExit} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><XCircle size={24} className="text-gray-500"/></button><div className="text-gray-400 font-mono mb-8">Q: {idx + 1} / {questions.length}</div><div className="flex-1 flex flex-col justify-center items-center w-full"><h2 className="text-3xl md:text-5xl font-bold mb-8 text-center leading-snug min-h-[120px]">{text}{!buzzed && <span className="animate-pulse text-indigo-500">|</span>}</h2>{showAnswer && (<div className="animate-bounce-in bg-indigo-50 px-8 py-4 rounded-2xl mb-8"><p className="text-2xl text-indigo-800 font-bold">{questions[idx].answer}</p></div>)}</div><div className="h-32 w-full flex items-center justify-center">{!buzzed ? (<button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-2xl hover:scale-105 transition active:scale-95 flex flex-col items-center justify-center"><Zap size={32} className="mb-2"/> 抢答</button>) : (<div className="flex gap-6 w-full max-w-md animate-fade-in"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 text-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl hover:bg-green-200 text-xl">答对</button></div>)}</div></div>);
 };
 
 const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
@@ -988,17 +1061,6 @@ const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     const handleReview = (success) => { if (!currentQ) return; let currentStreak = currentQ.reviewStreak || 0; let nextIntervalDays = 1; if (success) { currentStreak += 1; nextIntervalDays = Math.pow(2, currentStreak); } else { currentStreak = 0; } const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000); onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak }); const nextQueue = queue.slice(1); setQueue(nextQueue); if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); } };
     if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
     return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center"><div className="text-center mb-4 font-bold">复习模式</div><div className="bg-white rounded-3xl shadow-xl p-10 text-center"><h2 className="text-3xl font-bold mb-8">{currentQ.question}</h2>{showAnswer ? <div className="text-xl text-green-800 mb-8">{currentQ.answer}</div> : <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">查看答案</button>}{showAnswer && <div className="grid grid-cols-2 gap-4"><button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold">忘记了</button><button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold">记得</button></div>}</div><button onClick={onExit} className="mt-6 text-gray-500">退出</button></div>);
-};
-
-const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
-    const [questions, setQuestions] = useState([]); const [idx, setIdx] = useState(-1); const [text, setText] = useState(""); const [buzzed, setBuzzed] = useState(false); const [results, setResults] = useState([]); const intervalRef = useRef(null);
-    useEffect(() => { const pool = shuffleArray([...book.content]); setQuestions(pool.slice(0, 10)); setIdx(0); }, []);
-    useEffect(() => { if (idx >= 0 && idx < questions.length && !buzzed) { setText(""); let i = 0; const q = questions[idx].question; intervalRef.current = setInterval(() => { setText(q.substring(0, i+1)); i++; if (i === q.length) clearInterval(intervalRef.current); }, 150); } return () => clearInterval(intervalRef.current); }, [idx, questions, buzzed]);
-    const handleBuzz = () => { clearInterval(intervalRef.current); setText(questions[idx].question); setBuzzed(true); };
-    const handleAnswer = (correct) => { if(!correct) onUpdateProgress(questions[idx].id, { isMistake: true }); setResults([...results, correct]); setBuzzed(false); setIdx(idx + 1); };
-    if (idx === -1) return <div>Loading...</div>;
-    if (idx >= questions.length) return <div className="flex flex-col items-center justify-center h-full"><h2 className="text-3xl font-bold">挑战结束: {results.filter(x=>x).length}/{questions.length}</h2><button onClick={onExit} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg">完成</button></div>;
-    return (<div className="flex flex-col h-full justify-center items-center p-4"><h2 className="text-4xl font-bold mb-8 text-center h-32">{text}</h2>{!buzzed ? <button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-xl">抢答</button> : <div className="flex gap-4 w-full max-w-md"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl">答对</button></div>}</div>);
 };
 
 // --- MAIN APP ---
@@ -1027,6 +1089,7 @@ export default function App() {
             setUser(u);
             setView('home');
         } else {
+            setUser(null); 
             setView('auth');
         }
     });
@@ -1068,25 +1131,17 @@ export default function App() {
             version: 1,
             createdAt: serverTimestamp()
         };
-
         let bookId;
         if (editTarget) {
-            const newVersion = editTarget.version + 1;
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'books', editTarget.id), {
-                ...bookData,
-                version: newVersion
-            });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'books', editTarget.id), { ...bookData, version: editTarget.version + 1 });
             bookId = editTarget.id;
         } else {
             const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'books'), bookData);
             bookId = docRef.id;
             await addMyBook(bookId, password); 
         }
-        setIsEditorOpen(false);
-        setEditTarget(null);
-    } catch (e) {
-        console.error(e);
-    }
+        setIsEditorOpen(false); setEditTarget(null);
+    } catch (e) { console.error(e); }
   };
 
   const handleDeleteBook = async (bookId) => {
@@ -1116,18 +1171,20 @@ export default function App() {
 
   const updateProgress = async (bookId, qId, resultObj) => {
       if (!currentBook) return;
-      const currentBookProgress = userProgress[currentBook.id] || {};
+      const currentBookProgress = userProgress[bookId] || {};
+      const currentQProgress = currentBookProgress[qId] || {};
+      
+      // If score resets to 0 (wrong), keep previous mistake status unless explicitly cleared
+      const updatedQProgress = { ...currentQProgress, ...resultObj };
+      
       const updatedBookProgress = {
           ...currentBookProgress,
-          [qId]: resultObj._reset ? resultObj : { ...currentBookProgress[qId], ...resultObj }
+          [qId]: updatedQProgress
       };
-      const newFullProgress = {
-          ...userProgress,
-          [currentBook.id]: updatedBookProgress
-      };
-      setUserProgress(newFullProgress);
+      
+      setUserProgress({ ...userProgress, [bookId]: updatedBookProgress });
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
-          progress: newFullProgress
+          progress: { ...userProgress, [bookId]: updatedBookProgress }
       }, { merge: true });
   };
 
@@ -1182,8 +1239,24 @@ export default function App() {
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 justify-items-center">
                   {myBooks.map(id => books.find(b => b.id === id)).filter(b => b).map(book => (
                     <div key={book.id} className="relative group">
-                        <BookCard book={book} isOwner={book.ownerId === user.uid} onClick={() => handleOpenBook(book)} onEdit={(b) => { setEditTarget(b); setIsEditorOpen(true); }} onDelete={handleDeleteBook} />
-                        <button onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 transition">移除</button>
+                        {/* 关键修改：主页只给移除按钮，不给编辑删除 */}
+                        <BookCard 
+                          book={book} 
+                          isOwner={false} 
+                          isLibraryMode={false}
+                          onClick={() => handleOpenBook(book)} 
+                          onEdit={() => {}} 
+                          onDelete={() => {}} 
+                          onRemove={removeMyBook}
+                        />
+                        {/* 右上角移除按钮 */}
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} 
+                          className="absolute -top-2 -right-2 p-2 bg-white text-gray-400 rounded-full shadow-lg hover:bg-gray-100 hover:text-red-500 border border-gray-100 transition opacity-0 group-hover:opacity-100"
+                          title="从书架移除"
+                        >
+                           <X size={14}/>
+                        </button>
                     </div>
                   ))}
                </div>
@@ -1200,8 +1273,9 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {books.map(book => {
                 const isAdded = myBooks.includes(book.id);
+                const isOwner = book.ownerId === user.uid;
                 return (
-                  <div key={book.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex justify-between items-center">
+                  <div key={book.id} className="relative bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex justify-between items-center group">
                     <div className="flex items-center">
                        <div className={`w-12 h-16 rounded bg-gradient-to-br from-gray-400 to-gray-600 mr-4 shadow-sm`}></div>
                        <div>
@@ -1210,7 +1284,17 @@ export default function App() {
                          <div className="flex gap-2 mt-1"><span className="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{book.content?.length || 0} 题</span>{book.password && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded flex items-center"><Zap size={8} className="mr-1"/>加密</span>}</div>
                        </div>
                     </div>
-                    {isAdded ? (<span className="text-green-500 text-sm font-bold flex items-center"><CheckCircle size={16} className="mr-1"/> 已添加</span>) : (<button onClick={() => { const pwd = book.password ? prompt("请输入本书密码:") : ""; if(book.password && !pwd) return; addMyBook(book.id, pwd); }} className="text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 transition">获取</button>)}
+                    <div className="flex flex-col items-end gap-2 z-10 relative">
+                        {isAdded ? (<span className="text-green-500 text-sm font-bold flex items-center"><CheckCircle size={16} className="mr-1"/> 已添加</span>) : (<button onClick={() => { const pwd = book.password ? prompt("请输入本书密码:") : ""; if(book.password && !pwd) return; addMyBook(book.id, pwd); }} className="text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-indigo-100 transition">获取</button>)}
+                        
+                        {/* 关键修改：只有在图书馆且是作者时，才显示编辑删除 */}
+                        {isOwner && (
+                            <div className="flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => { e.stopPropagation(); setEditTarget(book); setIsEditorOpen(true); }} className="text-gray-400 hover:text-blue-500 p-1"><Edit size={16}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteBook(book.id); }} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                            </div>
+                        )}
+                    </div>
                   </div>
                 );
               })}
