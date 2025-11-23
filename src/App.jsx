@@ -6,8 +6,8 @@ import {
   onAuthStateChanged,
   signOut,
   signInWithCustomToken,
-  GoogleAuthProvider, // 新增：Google 验证提供方
-  signInWithPopup     // 新增：弹出窗口登录
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -24,36 +24,29 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 
-// --- SAFE ICONS ONLY (防崩溃图标集) ---
+// --- SAFE ICONS ONLY ---
 import { 
   Book, Plus, Play, Trash2, Edit, Search, ArrowLeft, 
   CheckCircle, XCircle, Clock, Zap, LogOut, User, Save, 
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn // 新增登录图标
+  LogIn
 } from 'lucide-react';
 
-// --- Firebase Configuration (配置区) ---
-// ⚠️⚠️⚠️ 请在这里填入你在 Firebase 控制台复制的真实配置 ⚠️⚠️⚠️
+// --- Firebase Configuration ---
+// ⚠️⚠️⚠️ 请确保这里填入了你的 Firebase 配置 ⚠️⚠️⚠️
 const firebaseConfig = {
- apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
-  authDomain: "recite-master.firebaseapp.com",
-  projectId: "recite-master",
-  storageBucket: "recite-master.firebasestorage.app",
-  messagingSenderId: "953331179802",
-  appId: "1:953331179802:web:db03b028bd63c55cea8ca3",
-  measurementId: "G-N36X16DC3T"
+  // 在这里填入配置...
+  // apiKey: "...",
+  // authDomain: "...",
+  // ...
 };
 
-// 如果你还没填配置，这里会提醒你，防止白屏
-if (!firebaseConfig.apiKey) {
-  console.error("❌ 严重错误：请在 src/App.jsx 第 35 行填入你的 Firebase 配置！否则网站无法运行！");
-}
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// 防白屏保护
+const app = Object.keys(firebaseConfig).length > 0 ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
 const appId = "public-library-v1";
 
 // --- Helper Functions ---
@@ -103,9 +96,10 @@ const AI_PROMPT_QUIZ = `请帮我把以下的复习资料整理成 JSON 格式�
 
 // --- COMPONENTS ---
 
-// 1. Login Component (Updated for Google)
-const LoginView = () => {
+// 1. Login Component
+const LoginView = ({ onLogin }) => {
   const handleGoogleLogin = async () => {
+    if (!auth) return alert("Firebase 未配置！");
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -116,6 +110,7 @@ const LoginView = () => {
   };
 
   const handleGuestLogin = async () => {
+    if (!auth) return alert("Firebase 未配置！");
     try {
       await signInAnonymously(auth);
     } catch (error) {
@@ -137,7 +132,6 @@ const LoginView = () => {
             onClick={handleGoogleLogin}
             className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition transform hover:scale-[1.02] active:scale-95 shadow-md flex items-center justify-center"
           >
-            {/* Google Icon SVG */}
             <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -211,7 +205,7 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onEdit }) => {
   );
 };
 
-// 3. Mode Selection Screen
+// 3. Mode Selection
 const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   const mistakeCount = useMemo(() => {
       let count = 0;
@@ -226,60 +220,40 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="bg-white shadow-sm p-4 flex items-center">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full mr-4">
-          <ArrowLeft size={24} />
-        </button>
+        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full mr-4"><ArrowLeft size={24} /></button>
         <h1 className="text-xl font-bold text-gray-800">{book.title} - 选择模式</h1>
       </div>
-
       <div className="flex-1 p-8 flex items-center justify-center">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
-          
           <div onClick={() => onSelectMode('normal')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-blue-500 group hover:-translate-y-1">
-            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
-              <BookOpen size={32} />
-            </div>
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition"><BookOpen size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">学习模式</h2>
-            <p className="text-gray-500">循序渐进：小分组高频循环，直到彻底掌握。</p>
+            <p className="text-gray-500">循序渐进：小分组高频循环。</p>
           </div>
-
           <div onClick={() => onSelectMode('review')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-green-500 group hover:-translate-y-1">
-            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
-              <Clock size={32} />
-            </div>
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition"><Clock size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">复习模式</h2>
-            <p className="text-gray-500">针对已掌握的题目。基于记忆曲线，答对后间隔 $2^n$ 天再次出现。</p>
+            <p className="text-gray-500">基于记忆曲线复习。</p>
           </div>
-
           <div onClick={() => onSelectMode('test')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-teal-500 group hover:-translate-y-1">
-            <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition">
-              <FileText size={32} />
-            </div>
+            <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition"><FileText size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">测验卷</h2>
-            <p className="text-gray-500">生成一份包含配对、选择、填空的模拟试卷。</p>
+            <p className="text-gray-500">生成试卷并评分。</p>
           </div>
-
           <div onClick={() => onSelectMode('buzz')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-purple-500 group hover:-translate-y-1">
-            <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition">
-              <Zap size={32} />
-            </div>
+            <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition"><Zap size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">抢答挑战</h2>
-            <p className="text-gray-500">一次性挑战！题目逐字显示，考验反应速度。</p>
+            <p className="text-gray-500">手速大比拼！</p>
           </div>
-
           {mistakeCount > 0 && (
              <div onClick={() => onSelectMode('mistake')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-red-500 group hover:-translate-y-1 col-span-1 md:col-span-2 lg:col-span-1">
-               <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600 group-hover:scale-110 transition">
-                 <AlertTriangle size={32} />
-               </div>
+               <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600 group-hover:scale-110 transition"><AlertTriangle size={32} /></div>
                <div className="flex justify-between items-start">
                  <h2 className="text-2xl font-bold mb-2 text-gray-800">错题突击</h2>
                  <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold">{mistakeCount} 题</span>
                </div>
-               <p className="text-gray-500">集中消灭你在测验或抢答中产生的错题。</p>
              </div>
           )}
-
         </div>
       </div>
     </div>
@@ -614,7 +588,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// ... TestMode, NormalMode, ReviewMode, BuzzMode (Logic remains as perfected in previous step) ...
+// --- Test Mode (Re-implemented with Mistake Generation) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -907,7 +881,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                 )}
             </div>
             {!isReview && (
-                <div className="p-6 border-t bg-gray-50 flex justify-end gap-4 sticky bottom-0 shadow-lg z-30">
+                <div className="p-6 border-t bg-gray-50 flex justify-end gap-4 sticky bottom-0">
                     <button onClick={onExit} className="px-6 py-2 text-gray-500">暂存退出</button>
                     <button onClick={() => setShowConfirm(true)} className="px-8 py-2 bg-indigo-600 text-white rounded shadow">提交试卷</button>
                 </div>
