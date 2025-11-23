@@ -6,8 +6,8 @@ import {
   onAuthStateChanged,
   signOut,
   signInWithCustomToken,
-  GoogleAuthProvider,
-  signInWithPopup
+  GoogleAuthProvider, // 新增：Google 验证提供方
+  signInWithPopup     // 新增：弹出窗口登录
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -24,42 +24,36 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 
-// --- SAFE ICONS ONLY ---
+// --- SAFE ICONS ONLY (防崩溃图标集) ---
 import { 
   Book, Plus, Play, Trash2, Edit, Search, ArrowLeft, 
   CheckCircle, XCircle, Clock, Zap, LogOut, User, Save, 
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn
+  LogIn // 新增登录图标
 } from 'lucide-react';
 
-// --- Firebase Configuration ---
-// ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-// 关键：请把你之前的 Firebase 配置填回这里！否则会白屏！
-// ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+// --- Firebase Configuration (配置区) ---
+// ⚠️⚠️⚠️ 请在这里填入你在 Firebase 控制台复制的真实配置 ⚠️⚠️⚠️
 const firebaseConfig = {
-  // 例如：
-  // apiKey: "AIzaSyDxxxxxx...",
-  // authDomain: "xxxx.firebaseapp.com",
-  // ...
+ apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
+  authDomain: "recite-master.firebaseapp.com",
+  projectId: "recite-master",
+  storageBucket: "recite-master.firebasestorage.app",
+  messagingSenderId: "953331179802",
+  appId: "1:953331179802:web:db03b028bd63c55cea8ca3",
+  measurementId: "G-N36X16DC3T"
 };
 
-// --- 安全初始化逻辑 (防止白屏) ---
-let app = null;
-let auth = null;
-let db = null;
-
-if (firebaseConfig.apiKey) {
-  try {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  } catch (e) {
-    console.error("Firebase 初始化失败:", e);
-  }
+// 如果你还没填配置，这里会提醒你，防止白屏
+if (!firebaseConfig.apiKey) {
+  console.error("❌ 严重错误：请在 src/App.jsx 第 35 行填入你的 Firebase 配置！否则网站无法运行！");
 }
 
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 const appId = "public-library-v1";
 
 // --- Helper Functions ---
@@ -109,10 +103,9 @@ const AI_PROMPT_QUIZ = `请帮我把以下的复习资料整理成 JSON 格式�
 
 // --- COMPONENTS ---
 
-// 1. Login Component
-const LoginView = ({ onLogin }) => {
+// 1. Login Component (Updated for Google)
+const LoginView = () => {
   const handleGoogleLogin = async () => {
-    if (!auth) return alert("Firebase 未配置！请检查代码。");
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
@@ -123,7 +116,6 @@ const LoginView = ({ onLogin }) => {
   };
 
   const handleGuestLogin = async () => {
-    if (!auth) return alert("Firebase 未配置！请检查代码。");
     try {
       await signInAnonymously(auth);
     } catch (error) {
@@ -145,6 +137,7 @@ const LoginView = ({ onLogin }) => {
             onClick={handleGoogleLogin}
             className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition transform hover:scale-[1.02] active:scale-95 shadow-md flex items-center justify-center"
           >
+            {/* Google Icon SVG */}
             <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -218,7 +211,7 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onEdit }) => {
   );
 };
 
-// 3. Mode Selection
+// 3. Mode Selection Screen
 const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   const mistakeCount = useMemo(() => {
       let count = 0;
@@ -233,40 +226,60 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="bg-white shadow-sm p-4 flex items-center">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full mr-4"><ArrowLeft size={24} /></button>
+        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full mr-4">
+          <ArrowLeft size={24} />
+        </button>
         <h1 className="text-xl font-bold text-gray-800">{book.title} - 选择模式</h1>
       </div>
+
       <div className="flex-1 p-8 flex items-center justify-center">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
+          
           <div onClick={() => onSelectMode('normal')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-blue-500 group hover:-translate-y-1">
-            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition"><BookOpen size={32} /></div>
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
+              <BookOpen size={32} />
+            </div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">学习模式</h2>
-            <p className="text-gray-500">循序渐进：小分组高频循环。</p>
+            <p className="text-gray-500">循序渐进：小分组高频循环，直到彻底掌握。</p>
           </div>
+
           <div onClick={() => onSelectMode('review')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-green-500 group hover:-translate-y-1">
-            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition"><Clock size={32} /></div>
+            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
+              <Clock size={32} />
+            </div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">复习模式</h2>
-            <p className="text-gray-500">基于记忆曲线复习。</p>
+            <p className="text-gray-500">针对已掌握的题目。基于记忆曲线，答对后间隔 $2^n$ 天再次出现。</p>
           </div>
+
           <div onClick={() => onSelectMode('test')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-teal-500 group hover:-translate-y-1">
-            <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition"><FileText size={32} /></div>
+            <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition">
+              <FileText size={32} />
+            </div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">测验卷</h2>
-            <p className="text-gray-500">生成试卷并评分。</p>
+            <p className="text-gray-500">生成一份包含配对、选择、填空的模拟试卷。</p>
           </div>
+
           <div onClick={() => onSelectMode('buzz')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-purple-500 group hover:-translate-y-1">
-            <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition"><Zap size={32} /></div>
+            <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition">
+              <Zap size={32} />
+            </div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">抢答挑战</h2>
-            <p className="text-gray-500">手速大比拼！</p>
+            <p className="text-gray-500">一次性挑战！题目逐字显示，考验反应速度。</p>
           </div>
+
           {mistakeCount > 0 && (
              <div onClick={() => onSelectMode('mistake')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-red-500 group hover:-translate-y-1 col-span-1 md:col-span-2 lg:col-span-1">
-               <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600 group-hover:scale-110 transition"><AlertTriangle size={32} /></div>
+               <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-red-600 group-hover:scale-110 transition">
+                 <AlertTriangle size={32} />
+               </div>
                <div className="flex justify-between items-start">
                  <h2 className="text-2xl font-bold mb-2 text-gray-800">错题突击</h2>
                  <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold">{mistakeCount} 题</span>
                </div>
+               <p className="text-gray-500">集中消灭你在测验或抢答中产生的错题。</p>
              </div>
           )}
+
         </div>
       </div>
     </div>
@@ -367,157 +380,153 @@ const BookEditor = ({ onClose, onSave, initialData = null }) => {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
         <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-          <div><h2 className="text-xl font-bold text-gray-800">{initialData ? '编辑抽背书' : '新建抽背书'}</h2><p className="text-xs text-gray-500 mt-1">可视化编辑器</p></div>
-          <button onClick={onClose}><XCircle className="text-gray-400 hover:text-gray-600" /></button>
+          <div>
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                  <Edit className="mr-2 text-indigo-600"/> {initialData ? '编辑抽背书' : '新建抽背书'}
+              </h2>
+              <p className="text-sm text-gray-500 mt-1 ml-8">可视化编辑器</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:rotate-90 transition"><XCircle size={28}/></button>
         </div>
-        <div className="flex-1 overflow-hidden flex flex-col">
-           <div className="p-6 bg-white border-b space-y-4 shrink-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">书名 <span className="text-red-500">*</span></label><input value={title} onChange={e => { setTitle(e.target.value); setErrorMsg(''); }} className={`w-full border-b-2 ${errorMsg && !title.trim() ? 'border-red-500 bg-red-50' : 'border-gray-200'} focus:border-indigo-500 outline-none py-2 bg-transparent transition`} placeholder="例如：七年级历史" /></div>
-                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">密码 (可选)</label><input value={password} onChange={e => setPassword(e.target.value)} className="w-full border-b-2 border-gray-200 focus:border-indigo-500 outline-none py-2 bg-transparent transition" placeholder="留空则公开" /></div>
+        
+        <div className="flex-1 overflow-hidden flex flex-col bg-gray-50/50">
+           <div className="p-6 bg-white border-b space-y-6 shrink-0 shadow-sm z-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">书名 <span className="text-red-500">*</span></label>
+                    <input 
+                        value={title} 
+                        onChange={e => { setTitle(e.target.value); setErrorMsg(''); }} 
+                        className={`w-full bg-gray-50 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition ${errorMsg && !title.trim() ? 'border-red-500 bg-red-50' : 'border-gray-200'}`} 
+                        placeholder="例如：七年级历史" 
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">密码 (可选)</label>
+                    <input 
+                        value={password} 
+                        onChange={e => setPassword(e.target.value)} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition" 
+                        placeholder="留空则公开" 
+                    />
+                </div>
               </div>
+              
               <div className="flex items-center justify-between pt-2">
-                 <div className="flex items-center gap-2">
-                    <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={isQuizMode} onChange={(e) => setIsQuizMode(e.target.checked)} className="sr-only peer" /><div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div></label>
-                    <span className={`text-sm font-medium ${isQuizMode ? 'text-orange-600' : 'text-gray-500'}`}>{isQuizMode ? '添加干扰项 (用于学习前期)' : '标准模式 (自动生成干扰项)'}</span>
+                 <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={isQuizMode} onChange={(e) => setIsQuizMode(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                    </label>
+                    <span className={`text-sm font-bold ${isQuizMode ? 'text-orange-600' : 'text-gray-500'}`}>
+                        {isQuizMode ? '选择题模式 (需手动添加选项)' : '标准模式 (推荐)'}
+                    </span>
                  </div>
-                 <div className="flex gap-2"><button onClick={() => setImportMode(!importMode)} className={`flex items-center px-3 py-1.5 rounded text-sm font-bold transition ${importMode ? 'bg-gray-200 text-gray-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>{importMode ? <ArrowLeft size={16} className="mr-1"/> : <Code size={16} className="mr-1"/>}{importMode ? '返回列表' : '批量识别/导入'}</button></div>
+                 <div className="flex gap-2">
+                    <button 
+                        onClick={() => setImportMode(!importMode)} 
+                        className={`flex items-center px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm border ${importMode ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100'}`}
+                    >
+                        {importMode ? <ArrowLeft size={16} className="mr-2"/> : <Code size={16} className="mr-2"/>}
+                        {importMode ? '返回列表' : '批量导入'}
+                    </button>
+                 </div>
               </div>
            </div>
+
            <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
               {importMode ? (
                  <div className="h-full flex flex-col animate-fade-in">
-                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4"><h4 className="font-bold text-blue-800 text-sm mb-2 flex items-center"><Zap size={14} className="mr-1"/> AI 辅助 / 批量识别</h4><p className="text-xs text-blue-600 mb-2">你可以粘贴 AI 生成的 JSON，或者手动输入文本。</p><div className="flex gap-2 text-xs"><button onClick={handleCopyPrompt} className="bg-white border border-blue-200 text-blue-600 px-2 py-1 rounded hover:bg-blue-50">复制 AI 提示词</button><span className="text-blue-400 self-center">|</span><span className="text-blue-500 self-center">文本格式示例: 问题 | 答案 (每行一个)</span></div></div>
-                    <textarea value={importText} onChange={e => setImportText(e.target.value)} className="flex-1 w-full border rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder={`粘贴文本在这里...\n\nJSON示例:\n[{'{"question":"...","answer":"..."}'}]\n\n文本示例:\n1+1等于几? | 2\n白日依山尽下一句? | 黄河入海流`} />
-                    <div className="flex gap-3 mt-4 justify-end"><button onClick={() => handleImport('text')} className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 shadow-sm">识别纯文本 (行模式)</button><button onClick={() => handleImport('json')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md">识别 JSON</button></div>
+                    <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-xl mb-6">
+                       <h4 className="font-bold text-indigo-900 text-base mb-3 flex items-center"><Zap size={18} className="mr-2 text-indigo-600"/> AI 辅助导入</h4>
+                       <p className="text-sm text-indigo-700 mb-4 leading-relaxed">复制下方提示词给 AI，然后将生成的 JSON 粘贴到下方文本框即可。</p>
+                       <div className="flex items-center gap-3">
+                          <button onClick={handleCopyPrompt} className="bg-white border border-indigo-200 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 font-bold text-xs shadow-sm transition">复制提示词</button>
+                          <span className="text-indigo-300">|</span>
+                          <span className="text-indigo-500 text-xs font-mono bg-white/50 px-2 py-1 rounded">{'格式: [{"question":"...","answer":"..."}]'}</span>
+                       </div>
+                    </div>
+                    <textarea 
+                        value={importText} 
+                        onChange={e => setImportText(e.target.value)} 
+                        className="flex-1 w-full border border-gray-300 rounded-xl p-5 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner resize-none" 
+                        placeholder={`在此粘贴内容...\n\n支持格式:\n1. AI 生成的 JSON 数组\n2. 文本行模式: 问题 | 答案`} 
+                    />
+                    <div className="flex gap-4 mt-6 justify-end">
+                        <button onClick={() => handleImport('text')} className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition">识别纯文本</button>
+                        <button onClick={() => handleImport('json')} className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg transition">识别 JSON</button>
+                    </div>
                  </div>
               ) : (
-                 <div className="space-y-4">
-                    {questions.length === 0 && <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl"><p>暂无题目，请添加或导入</p></div>}
+                 <div className="space-y-4 pb-20">
+                    {questions.length === 0 && (
+                        <div className="text-center py-20 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl bg-white/50">
+                            <Edit size={48} className="mx-auto mb-4 opacity-20"/>
+                            <p className="font-medium">暂无题目，点击下方按钮添加</p>
+                        </div>
+                    )}
                     {questions.map((q, idx) => (
-                       <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 group hover:shadow-md transition-all">
-                          <div className="flex gap-4 items-start">
-                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-bold text-xs shrink-0 mt-1">{idx + 1}</div>
-                             <div className="flex-1 space-y-3">
-                                <div><input value={q.question} onChange={e => handleUpdateQuestion(idx, 'question', e.target.value)} className="w-full font-bold text-gray-800 border-b border-transparent hover:border-gray-200 focus:border-indigo-500 outline-none transition bg-transparent placeholder-gray-300" placeholder="输入问题..." /></div>
-                                <div><input value={q.answer} onChange={e => handleUpdateQuestion(idx, 'answer', e.target.value)} className="w-full text-sm text-green-700 border-b border-transparent hover:border-gray-200 focus:border-green-500 outline-none transition bg-transparent placeholder-gray-300" placeholder="输入正确答案..." /></div>
-                                {isQuizMode && <div className="bg-orange-50 p-3 rounded-lg mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">{[0, 1, 2].map(optIdx => (<input key={optIdx} value={q.options?.[optIdx] || ''} onChange={e => handleUpdateOption(idx, optIdx, e.target.value)} className="w-full text-xs bg-white border border-orange-100 rounded px-2 py-1 focus:border-orange-400 outline-none" placeholder={`干扰项 ${optIdx + 1}`} />))}</div>}
-                             </div>
-                             <button onClick={() => handleDeleteQuestion(idx)} className="text-gray-300 hover:text-red-500 p-2 transition"><Trash2 size={16} /></button>
+                       <div key={idx} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 group hover:shadow-md transition-all duration-200 relative">
+                          <div className="absolute top-4 left-4 w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold">
+                              {idx + 1}
                           </div>
+                          <div className="ml-10 space-y-4">
+                                <div>
+                                   <input 
+                                    value={q.question} 
+                                    onChange={e => handleUpdateQuestion(idx, 'question', e.target.value)} 
+                                    className="w-full font-bold text-gray-800 text-lg border-b-2 border-gray-100 hover:border-gray-300 focus:border-indigo-500 outline-none transition bg-transparent pb-1" 
+                                    placeholder="输入问题..." 
+                                   />
+                                </div>
+                                <div>
+                                   <input 
+                                    value={q.answer} 
+                                    onChange={e => handleUpdateQuestion(idx, 'answer', e.target.value)} 
+                                    className="w-full text-gray-600 border-b-2 border-gray-100 hover:border-gray-300 focus:border-green-500 outline-none transition bg-transparent pb-1" 
+                                    placeholder="输入正确答案..." 
+                                   />
+                                </div>
+                                {isQuizMode && (
+                                    <div className="bg-orange-50 p-4 rounded-lg mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 border border-orange-100">
+                                        {[0, 1, 2].map(optIdx => (
+                                            <input 
+                                                key={optIdx} 
+                                                value={q.options?.[optIdx] || ''} 
+                                                onChange={e => handleUpdateOption(idx, optIdx, e.target.value)} 
+                                                className="w-full text-xs bg-white border border-orange-200 rounded px-3 py-2 focus:ring-2 focus:ring-orange-300 outline-none" 
+                                                placeholder={`干扰项 ${optIdx + 1}`} 
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                          </div>
+                          <button onClick={() => handleDeleteQuestion(idx)} className="absolute top-4 right-4 text-gray-300 hover:text-red-500 p-2 transition rounded-full hover:bg-red-50">
+                             <Trash2 size={18} />
+                          </button>
                        </div>
                     ))}
-                    <button onClick={handleAddQuestion} className="w-full py-3 border-2 border-dashed border-indigo-200 text-indigo-500 font-bold rounded-xl hover:bg-indigo-50 transition flex items-center justify-center gap-2"><Plus size={20}/> 添加一行</button>
+                    <button onClick={handleAddQuestion} className="w-full py-4 border-2 border-dashed border-indigo-200 text-indigo-500 font-bold rounded-xl hover:bg-indigo-50 transition flex items-center justify-center gap-2 group">
+                        <Plus size={20} className="group-hover:scale-110 transition"/> 添加一行
+                    </button>
                  </div>
               )}
            </div>
         </div>
-        <div className="p-4 border-t bg-gray-50 flex justify-between items-center shrink-0">
-          <div className="flex items-center text-red-500 text-sm font-bold">{errorMsg && <><AlertCircle size={16} className="mr-1"/> {errorMsg}</>}</div>
-          <div className="flex gap-3"><button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">取消</button><button onClick={handleSave} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg">{initialData ? '保存修改 (重置所有进度)' : '完成创建'}</button></div>
+        <div className="p-5 border-t bg-white flex justify-between items-center shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+          <div className="flex items-center text-red-500 text-sm font-bold animate-pulse">
+             {errorMsg && <><AlertCircle size={16} className="mr-2"/> {errorMsg}</>}
+          </div>
+          <div className="flex gap-4">
+            <button onClick={onClose} className="px-6 py-3 text-gray-500 hover:bg-gray-100 rounded-xl font-bold transition">取消</button>
+            <button onClick={handleSave} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 hover:-translate-y-0.5 transition transform">
+                {initialData ? '保存修改' : '完成创建'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
-};
-
-// --- GAME MODES ---
-
-const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
-  const POOL_SIZE = 5; 
-  const [activeQueue, setActiveQueue] = useState([]);
-  const [pendingPool, setPendingPool] = useState([]);
-  const [currentQ, setCurrentQ] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [currentOptions, setCurrentOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null);
-  
-  useEffect(() => {
-    let initialQueue = book.content.map(q => {
-      const prog = userProgress[q.id] || { score: 0, mastery: false };
-      return { ...q, ...prog };
-    }).filter(q => !q.mastery); 
-    initialQueue.sort(() => Math.random() - 0.5);
-    const initialActive = initialQueue.slice(0, POOL_SIZE);
-    const remaining = initialQueue.slice(POOL_SIZE);
-    setPendingPool(remaining);
-    setActiveQueue(initialActive);
-    if (initialActive.length > 0) { setCurrentQ(initialActive[0]); prepareOptions(initialActive[0]); }
-  }, [book, userProgress]); 
-
-  const prepareOptions = (q) => {
-    if (!q || q.score >= 2) { setCurrentOptions([]); return; }
-    let distractors = [];
-    if (q.options && Array.isArray(q.options) && q.options.length >= 3) distractors = q.options.slice(0, 3);
-    else {
-      const otherAnswers = book.content.filter(item => item.id !== q.id).map(item => item.answer);
-      const uniqueOthers = [...new Set(otherAnswers)].sort(() => Math.random() - 0.5).slice(0, 3);
-      while (uniqueOthers.length < 3) uniqueOthers.push("N/A");
-      distractors = uniqueOthers;
-    }
-    const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
-    setCurrentOptions(all);
-  };
-  
-  useEffect(() => { if (currentQ) { setQuizFeedback(null); if (currentQ.score < 2) prepareOptions(currentQ); } }, [currentQ]);
-
-  const handleOptionClick = (opt) => {
-      if (quizFeedback) return; 
-      const isCorrect = opt === currentQ.answer;
-      setQuizFeedback({ selected: opt, isCorrect });
-      if (isCorrect) setTimeout(() => handleAnswer(true), 800);
-  };
-
-  const handleAnswer = (isCorrect, unknown = false) => {
-    if (!currentQ) return;
-    let newScore = currentQ.score;
-    let mastered = false;
-    // Wrong -> Mistake
-    if (!isCorrect && !unknown) onUpdateProgress(currentQ.id, { isMistake: true });
-
-    if (unknown) newScore = 0; else if (isCorrect) newScore += 1; else newScore = 0; 
-    if (newScore >= 3) mastered = true;
-    onUpdateProgress(currentQ.id, { score: newScore, mastery: mastered, lastReview: Date.now() });
-    
-    let nextQueue = [...activeQueue];
-    let nextPending = [...pendingPool];
-    nextQueue.shift();
-    if (mastered) { if (nextPending.length > 0) nextQueue.push(nextPending.shift()); }
-    else {
-        const priority = newScore === 0 ? 1 : Math.min(nextQueue.length, 2 + Math.floor(Math.random() * 2));
-        if (priority >= nextQueue.length) nextQueue.push({ ...currentQ, score: newScore }); else nextQueue.splice(priority, 0, { ...currentQ, score: newScore });
-    }
-    setPendingPool(nextPending);
-    setActiveQueue(nextQueue);
-    if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); }
-  };
-
-  if (!currentQ) {
-      if (activeQueue.length === 0 && pendingPool.length === 0 && book.content.length > 0) return (<div className="flex flex-col items-center justify-center h-full animate-bounce-in"><Trophy size={80} className="text-yellow-500 mb-4"/><h2 className="text-3xl font-bold text-gray-800">恭喜！已掌握！</h2><button onClick={onExit} className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700">返回书架</button></div>);
-      if (book.content.length === 0) return <div className="flex items-center justify-center h-full">暂无题目</div>;
-      return <div className="flex items-center justify-center h-full">准备中...</div>;
-  }
-  const isQuizPhase = currentQ.score < 2;
-  return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center p-4"><div className="absolute top-4 right-4 flex gap-4"><button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"><Save size={18} /> 退出</button></div><div className="mb-6 flex items-center justify-between text-gray-500 text-sm font-bold"><div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>学习池: {activeQueue.length}</span></div><div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1" : currentQ.score === 1 ? "阶段 2" : "阶段 3"}</span></div></div><div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative"><div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div><div className="flex-1 flex items-center justify-center p-8 text-center flex-col"><h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>{!isQuizPhase && showAnswer && (<div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full"><p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p></div>)}</div><div className="p-6 bg-gray-50 border-t border-gray-100">{isQuizPhase ? (<div className="w-full"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">{currentOptions.map((opt, idx) => { let btnClass = "bg-white border-2 border-indigo-50 text-gray-700 font-bold text-lg hover:bg-indigo-50 hover:border-indigo-200"; if (quizFeedback) { if (opt === currentQ.answer) btnClass = "bg-green-100 border-green-500 text-green-800"; else if (opt === quizFeedback.selected && !quizFeedback.isCorrect) btnClass = "bg-red-100 border-red-500 text-red-800"; else btnClass = "opacity-40 border-gray-100 bg-gray-50"; } else { btnClass += " transition transform active:scale-95 shadow-sm"; } return (<button key={idx} onClick={() => handleOptionClick(opt)} disabled={!!quizFeedback} className={`p-4 rounded-xl ${btnClass}`}>{opt}</button>) })}</div>{quizFeedback && !quizFeedback.isCorrect && (<div className="text-center animate-bounce-in p-4 bg-red-50 border border-red-100 rounded-lg"><span className="text-red-500 font-bold text-lg block mb-3">正确答案是：{currentQ.answer}</span><button onClick={() => handleAnswer(false)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition transform active:scale-95">下一题 (记入错题)</button></div>)}</div>) : (!showAnswer ? (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false, true)} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button><button onClick={() => setShowAnswer(true)} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button></div>) : (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 记错了</button><button onClick={() => handleAnswer(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 答案正确 (+1)</button></div>))}</div></div></div>);
-};
-
-const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
-    const [queue, setQueue] = useState([]); const [currentQ, setCurrentQ] = useState(null); const [showAnswer, setShowAnswer] = useState(false);
-    useEffect(() => { const now = Date.now(); const reviewQueue = book.content.map(q => { const prog = userProgress[q.id]; if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null; return { ...q, ...prog }; }).filter(Boolean); setQueue(reviewQueue); if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]); }, []);
-    const handleReview = (success) => { if (!currentQ) return; let currentStreak = currentQ.reviewStreak || 0; let nextIntervalDays = 1; if (success) { currentStreak += 1; nextIntervalDays = Math.pow(2, currentStreak); } else { currentStreak = 0; } const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000); onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak }); const nextQueue = queue.slice(1); setQueue(nextQueue); if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); } };
-    if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
-    return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center"><div className="text-center mb-4 font-bold">复习模式</div><div className="bg-white rounded-3xl shadow-xl p-10 text-center"><h2 className="text-3xl font-bold mb-8">{currentQ.question}</h2>{showAnswer ? <div className="text-xl text-green-800 mb-8">{currentQ.answer}</div> : <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">查看答案</button>}{showAnswer && <div className="grid grid-cols-2 gap-4"><button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold">忘记了</button><button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold">记得</button></div>}</div><button onClick={onExit} className="mt-6 text-gray-500">退出</button></div>);
-};
-
-const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
-    const [questions, setQuestions] = useState([]); const [idx, setIdx] = useState(-1); const [text, setText] = useState(""); const [buzzed, setBuzzed] = useState(false); const [results, setResults] = useState([]); const intervalRef = useRef(null);
-    useEffect(() => { const pool = shuffleArray([...book.content]); setQuestions(pool.slice(0, 10)); setIdx(0); }, []);
-    useEffect(() => { if (idx >= 0 && idx < questions.length && !buzzed) { setText(""); let i = 0; const q = questions[idx].question; intervalRef.current = setInterval(() => { setText(q.substring(0, i+1)); i++; if (i === q.length) clearInterval(intervalRef.current); }, 150); } return () => clearInterval(intervalRef.current); }, [idx, questions, buzzed]);
-    const handleBuzz = () => { clearInterval(intervalRef.current); setText(questions[idx].question); setBuzzed(true); };
-    const handleAnswer = (correct) => { if(!correct) onUpdateProgress(questions[idx].id, { isMistake: true }); setResults([...results, correct]); setBuzzed(false); setIdx(idx + 1); };
-    if (idx === -1) return <div>Loading...</div>;
-    if (idx >= questions.length) return <div className="flex flex-col items-center justify-center h-full"><h2 className="text-3xl font-bold">挑战结束: {results.filter(x=>x).length}/{questions.length}</h2><button onClick={onExit} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg">完成</button></div>;
-    return (<div className="flex flex-col h-full justify-center items-center p-4"><h2 className="text-4xl font-bold mb-8 text-center h-32">{text}</h2>{!buzzed ? <button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-xl">抢答</button> : <div className="flex gap-4 w-full max-w-md"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl">答对</button></div>}</div>);
 };
 
 // --- BookMistakeMode (Single Book Mistakes) ---
@@ -605,7 +614,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// --- Test Mode (Re-implemented with Mistake Generation) ---
+// ... TestMode, NormalMode, ReviewMode, BuzzMode (Logic remains as perfected in previous step) ...
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -908,6 +917,103 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
             )}
         </div>
     )
+};
+
+const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
+  const POOL_SIZE = 5; 
+  const [activeQueue, setActiveQueue] = useState([]);
+  const [pendingPool, setPendingPool] = useState([]);
+  const [currentQ, setCurrentQ] = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [currentOptions, setCurrentOptions] = useState([]);
+  const [quizFeedback, setQuizFeedback] = useState(null);
+  
+  useEffect(() => {
+    let initialQueue = book.content.map(q => {
+      const prog = userProgress[q.id] || { score: 0, mastery: false };
+      return { ...q, ...prog };
+    }).filter(q => !q.mastery); 
+    initialQueue.sort(() => Math.random() - 0.5);
+    const initialActive = initialQueue.slice(0, POOL_SIZE);
+    const remaining = initialQueue.slice(POOL_SIZE);
+    setPendingPool(remaining);
+    setActiveQueue(initialActive);
+    if (initialActive.length > 0) { setCurrentQ(initialActive[0]); prepareOptions(initialActive[0]); }
+  }, [book, userProgress]); 
+
+  const prepareOptions = (q) => {
+    if (!q || q.score >= 2) { setCurrentOptions([]); return; }
+    let distractors = [];
+    if (q.options && Array.isArray(q.options) && q.options.length >= 3) distractors = q.options.slice(0, 3);
+    else {
+      const otherAnswers = book.content.filter(item => item.id !== q.id).map(item => item.answer);
+      const uniqueOthers = [...new Set(otherAnswers)].sort(() => Math.random() - 0.5).slice(0, 3);
+      while (uniqueOthers.length < 3) uniqueOthers.push("N/A");
+      distractors = uniqueOthers;
+    }
+    const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
+    setCurrentOptions(all);
+  };
+  
+  useEffect(() => { if (currentQ) { setQuizFeedback(null); if (currentQ.score < 2) prepareOptions(currentQ); } }, [currentQ]);
+
+  const handleOptionClick = (opt) => {
+      if (quizFeedback) return; 
+      const isCorrect = opt === currentQ.answer;
+      setQuizFeedback({ selected: opt, isCorrect });
+      if (isCorrect) setTimeout(() => handleAnswer(true), 800);
+  };
+
+  const handleAnswer = (isCorrect, unknown = false) => {
+    if (!currentQ) return;
+    let newScore = currentQ.score;
+    let mastered = false;
+    // Wrong -> Mistake
+    if (!isCorrect && !unknown) onUpdateProgress(currentQ.id, { isMistake: true });
+
+    if (unknown) newScore = 0; else if (isCorrect) newScore += 1; else newScore = 0; 
+    if (newScore >= 3) mastered = true;
+    onUpdateProgress(currentQ.id, { score: newScore, mastery: mastered, lastReview: Date.now() });
+    
+    let nextQueue = [...activeQueue];
+    let nextPending = [...pendingPool];
+    nextQueue.shift();
+    if (mastered) { if (nextPending.length > 0) nextQueue.push(nextPending.shift()); }
+    else {
+        const priority = newScore === 0 ? 1 : Math.min(nextQueue.length, 2 + Math.floor(Math.random() * 2));
+        if (priority >= nextQueue.length) nextQueue.push({ ...currentQ, score: newScore }); else nextQueue.splice(priority, 0, { ...currentQ, score: newScore });
+    }
+    setPendingPool(nextPending);
+    setActiveQueue(nextQueue);
+    if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); }
+  };
+
+  if (!currentQ) {
+      if (activeQueue.length === 0 && pendingPool.length === 0 && book.content.length > 0) return (<div className="flex flex-col items-center justify-center h-full animate-bounce-in"><Trophy size={80} className="text-yellow-500 mb-4"/><h2 className="text-3xl font-bold text-gray-800">恭喜！已掌握！</h2><button onClick={onExit} className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700">返回书架</button></div>);
+      if (book.content.length === 0) return <div className="flex items-center justify-center h-full">暂无题目</div>;
+      return <div className="flex items-center justify-center h-full">准备中...</div>;
+  }
+  const isQuizPhase = currentQ.score < 2;
+  return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center p-4"><div className="absolute top-4 right-4 flex gap-4"><button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"><Save size={18} /> 退出</button></div><div className="mb-6 flex items-center justify-between text-gray-500 text-sm font-bold"><div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>学习池: {activeQueue.length}</span></div><div className="flex items-center gap-2"><Zap size={18} className={currentQ.score >= 2 ? "text-blue-600" : "text-gray-300"} /><span>{currentQ.score === 0 ? "阶段 1" : currentQ.score === 1 ? "阶段 2" : "阶段 3"}</span></div></div><div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative"><div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div><div className="flex-1 flex items-center justify-center p-8 text-center flex-col"><h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>{!isQuizPhase && showAnswer && (<div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full"><p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p></div>)}</div><div className="p-6 bg-gray-50 border-t border-gray-100">{isQuizPhase ? (<div className="w-full"><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">{currentOptions.map((opt, idx) => { let btnClass = "bg-white border-2 border-indigo-50 text-gray-700 font-bold text-lg hover:bg-indigo-50 hover:border-indigo-200"; if (quizFeedback) { if (opt === currentQ.answer) btnClass = "bg-green-100 border-green-500 text-green-800"; else if (opt === quizFeedback.selected && !quizFeedback.isCorrect) btnClass = "bg-red-100 border-red-500 text-red-800"; else btnClass = "opacity-40 border-gray-100 bg-gray-50"; } else { btnClass += " transition transform active:scale-95 shadow-sm"; } return (<button key={idx} onClick={() => handleOptionClick(opt)} disabled={!!quizFeedback} className={`p-4 rounded-xl ${btnClass}`}>{opt}</button>) })}</div>{quizFeedback && !quizFeedback.isCorrect && (<div className="text-center animate-bounce-in p-4 bg-red-50 border border-red-100 rounded-lg"><span className="text-red-500 font-bold text-lg block mb-3">正确答案是：{currentQ.answer}</span><button onClick={() => handleAnswer(false)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition transform active:scale-95">下一题 (记入错题)</button></div>)}</div>) : (!showAnswer ? (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false, true)} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button><button onClick={() => setShowAnswer(true)} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button></div>) : (<div className="grid grid-cols-2 gap-4"><button onClick={() => handleAnswer(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 记错了</button><button onClick={() => handleAnswer(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 答案正确 (+1)</button></div>))}</div></div></div>);
+};
+
+const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
+    const [queue, setQueue] = useState([]); const [currentQ, setCurrentQ] = useState(null); const [showAnswer, setShowAnswer] = useState(false);
+    useEffect(() => { const now = Date.now(); const reviewQueue = book.content.map(q => { const prog = userProgress[q.id]; if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null; return { ...q, ...prog }; }).filter(Boolean); setQueue(reviewQueue); if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]); }, []);
+    const handleReview = (success) => { if (!currentQ) return; let currentStreak = currentQ.reviewStreak || 0; let nextIntervalDays = 1; if (success) { currentStreak += 1; nextIntervalDays = Math.pow(2, currentStreak); } else { currentStreak = 0; } const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000); onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak }); const nextQueue = queue.slice(1); setQueue(nextQueue); if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); } };
+    if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
+    return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center"><div className="text-center mb-4 font-bold">复习模式</div><div className="bg-white rounded-3xl shadow-xl p-10 text-center"><h2 className="text-3xl font-bold mb-8">{currentQ.question}</h2>{showAnswer ? <div className="text-xl text-green-800 mb-8">{currentQ.answer}</div> : <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">查看答案</button>}{showAnswer && <div className="grid grid-cols-2 gap-4"><button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold">忘记了</button><button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold">记得</button></div>}</div><button onClick={onExit} className="mt-6 text-gray-500">退出</button></div>);
+};
+
+const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
+    const [questions, setQuestions] = useState([]); const [idx, setIdx] = useState(-1); const [text, setText] = useState(""); const [buzzed, setBuzzed] = useState(false); const [results, setResults] = useState([]); const intervalRef = useRef(null);
+    useEffect(() => { const pool = shuffleArray([...book.content]); setQuestions(pool.slice(0, 10)); setIdx(0); }, []);
+    useEffect(() => { if (idx >= 0 && idx < questions.length && !buzzed) { setText(""); let i = 0; const q = questions[idx].question; intervalRef.current = setInterval(() => { setText(q.substring(0, i+1)); i++; if (i === q.length) clearInterval(intervalRef.current); }, 150); } return () => clearInterval(intervalRef.current); }, [idx, questions, buzzed]);
+    const handleBuzz = () => { clearInterval(intervalRef.current); setText(questions[idx].question); setBuzzed(true); };
+    const handleAnswer = (correct) => { if(!correct) onUpdateProgress(questions[idx].id, { isMistake: true }); setResults([...results, correct]); setBuzzed(false); setIdx(idx + 1); };
+    if (idx === -1) return <div>Loading...</div>;
+    if (idx >= questions.length) return <div className="flex flex-col items-center justify-center h-full"><h2 className="text-3xl font-bold">挑战结束: {results.filter(x=>x).length}/{questions.length}</h2><button onClick={onExit} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg">完成</button></div>;
+    return (<div className="flex flex-col h-full justify-center items-center p-4"><h2 className="text-4xl font-bold mb-8 text-center h-32">{text}</h2>{!buzzed ? <button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-xl">抢答</button> : <div className="flex gap-4 w-full max-w-md"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl">答对</button></div>}</div>);
 };
 
 // --- MAIN APP ---
