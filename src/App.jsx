@@ -31,11 +31,11 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn
+  LogIn, ChevronRight
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// ✅ 已填入你的真实配置
+// ✅ 已填入您的真实配置
 const firebaseConfig = {
  apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
  authDomain: "recite-master.firebaseapp.com",
@@ -135,12 +135,7 @@ const LoginView = ({ onLogin }) => {
             onClick={handleGoogleLogin}
             className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg transition transform hover:scale-[1.02] active:scale-95 shadow-md flex items-center justify-center"
           >
-            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
+            <span className="mr-3 font-bold text-blue-500">G</span>
             Google 账号登录
           </button>
 
@@ -196,15 +191,24 @@ const BookCard = ({ book, onClick, isOwner, onDelete, onEdit }) => {
              </div>
           </div>
         </div>
-
-        <div className="absolute right-0 top-2 bottom-2 w-1.5 bg-white rounded-r-sm border-l border-gray-200 shadow-inner transform translate-x-[2px] -z-10"></div>
-        <div className="absolute right-0 top-3 bottom-3 w-1.5 bg-gray-100 rounded-r-sm border-l border-gray-200 shadow-inner transform translate-x-[4px] -z-20"></div>
       </div>
 
       {isOwner && (
-        <div className="absolute -top-2 -right-2 flex flex-col space-y-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(book); }} className="p-2 bg-white text-blue-500 rounded-full shadow-lg hover:bg-blue-50"><Edit size={14} /></button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(book.id); }} className="p-2 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50"><Trash2 size={14} /></button>
+        <div className="absolute -top-3 -right-3 flex flex-col space-y-1 z-20">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEdit(book); }} 
+            className="p-2 bg-white text-blue-600 rounded-full shadow-lg hover:bg-blue-50 border border-gray-100"
+            title="编辑"
+          >
+            <Edit size={14} />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDelete(book.id); }} 
+            className="p-2 bg-white text-red-500 rounded-full shadow-lg hover:bg-red-50 border border-gray-100"
+            title="删除"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       )}
     </div>
@@ -267,7 +271,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
   );
 };
 
-// 4. Book Editor
+// 4. Book Editor (Beautified)
 const BookEditor = ({ onClose, onSave, initialData = null }) => {
   const [title, setTitle] = useState(initialData?.title || '');
   const [password, setPassword] = useState(initialData?.password || '');
@@ -424,7 +428,6 @@ const BookEditor = ({ onClose, onSave, initialData = null }) => {
                        <div className="flex items-center gap-3">
                           <button onClick={handleCopyPrompt} className="bg-white border border-indigo-200 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-50 font-bold text-xs shadow-sm transition">复制提示词</button>
                           <span className="text-indigo-300">|</span>
-                          {/* Fixed JSX syntax error: wrapped string in quotes */}
                           <span className="text-indigo-500 text-xs font-mono bg-white/50 px-2 py-1 rounded">{'格式: [{"question":"...","answer":"..."}]'}</span>
                        </div>
                     </div>
@@ -901,7 +904,6 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Three-Stage + Feedback) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
