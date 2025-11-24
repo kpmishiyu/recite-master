@@ -31,7 +31,7 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X, GraduationCap, Target
+  LogIn, ChevronRight, X 
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
@@ -106,6 +106,7 @@ const LoginView = ({ onLogin }) => {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      // 登录成功后，onAuthStateChanged 会自动处理跳转，无需手动 onLogin()
     } catch (error) {
       console.error("Google login failed:", error);
       alert("登录失败: " + error.message);
@@ -251,7 +252,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
           <div onClick={() => onSelectMode('normal')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-blue-500 group hover:-translate-y-1">
             <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition"><BookOpen size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">学习模式</h2>
-            <p className="text-gray-500">循序渐进：3次答对达标，答错立即清零重来。</p>
+            <p className="text-gray-500">循序渐进：小分组高频循环，直到彻底掌握。</p>
           </div>
           <div onClick={() => onSelectMode('review')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-green-500 group hover:-translate-y-1">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition"><Clock size={32} /></div>
@@ -535,7 +536,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   
     useEffect(() => {
        const list = [];
-       const bookProg = userProgress || {}; 
+       const bookProg = userProgress || {}; // Single book progress passed in
        book.content.forEach(q => {
            const qProg = bookProg[q.id];
            if (qProg && qProg.isMistake) {
@@ -612,7 +613,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// --- Test Mode ---
+// --- Test Mode (Full Features & Safety) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -822,6 +823,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                 {isReview && <button onClick={() => setViewMode('report')} className="text-sm bg-white border px-3 py-1 rounded shadow-sm">返回报告</button>}
             </div>
             <div className="flex-1 p-8 space-y-12 overflow-y-auto">
+                {/* Matching Render */}
                 {testData.matching.left.length > 0 && (
                     <div>
                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">一、配对题</h3>
@@ -852,6 +854,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                         )}
                     </div>
                 )}
+                {/* MCQ Render */}
                 {testData.mcq.length > 0 && (
                     <div>
                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">二、选择题</h3>
@@ -879,6 +882,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                         )})}</div>
                     </div>
                 )}
+                {/* Fill Render */}
                 {testData.fill.length > 0 && (
                     <div>
                          <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">三、填空题</h3>
@@ -920,7 +924,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null); 
+  const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
   const [isFinished, setIsFinished] = useState(false);
   
   // Init
@@ -959,6 +963,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     setCurrentOptions(all);
   };
 
+  // Quiz Interaction
   const handleOptionClick = (opt) => {
       if (quizFeedback) return; 
       const isCorrect = opt === currentQ.answer;
@@ -968,6 +973,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       }
   };
 
+  // Flashcard Interaction
   const handleFlashcard = (type) => {
       if (type === 'unknown') {
           setShowAnswer(true); // SHOW ANSWER FIRST
@@ -1178,11 +1184,15 @@ export default function App() {
       const currentBookProgress = userProgress[bookId] || {};
       const updatedBookProgress = {
           ...currentBookProgress,
-          [qId]: { ...currentBookProgress[qId], ...resultObj }
+          [qId]: resultObj._reset ? resultObj : { ...currentBookProgress[qId], ...resultObj }
       };
-      setUserProgress({ ...userProgress, [bookId]: updatedBookProgress });
+      const newFullProgress = {
+          ...userProgress,
+          [bookId]: updatedBookProgress
+      };
+      setUserProgress(newFullProgress);
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
-          progress: { ...userProgress, [bookId]: updatedBookProgress }
+          progress: newFullProgress
       }, { merge: true });
   };
 
