@@ -31,7 +31,7 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X, ThumbsUp, ThumbsDown, GraduationCap
+  LogIn, ChevronRight, X
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
@@ -840,20 +840,64 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                                 })}
                              </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-8"><div className="space-y-2">{testData.matching.left.map(i => { const pairId = userAnswers[`match_left_${i.id}`]; const isSelected = userAnswers.selected_left === i.id; let badgeColor = null, pairNum = null; if (pairId) { const allPairs = Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort(); const pairIdx = allPairs.indexOf(`match_left_${i.id}`); pairNum = pairIdx + 1; badgeColor = pairColors[pairIdx % pairColors.length]; } return (<div key={i.id} onClick={() => handleMatchClickLeft(i.id)} className={`relative p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 flex items-center justify-between ${isSelected ? 'border-indigo-500 bg-indigo-50 shadow-md transform scale-[1.02]' : 'border-gray-200 hover:border-indigo-300'} ${pairId ? 'border-transparent bg-gray-50 opacity-80' : ''}`}><span className="text-sm font-medium text-gray-700">{i.q}</span>{pairId && <span className={`${badgeColor} text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full`}>{pairNum}</span>}</div>) })}</div><div className="space-y-2">{testData.matching.right.map(i => ( <div key={i.id} onClick={() => handleMatchClickRight(i.id)} className="p-3 border rounded cursor-pointer hover:bg-gray-50">{i.a}</div> ))}</div></div>
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-2">{testData.matching.left.map(i => {
+                                    const pairId = userAnswers[`match_left_${i.id}`];
+                                    let color = pairId ? pairColors[Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort().indexOf(`match_left_${i.id}`) % pairColors.length] : '';
+                                    return <div key={i.id} onClick={() => handleMatchClickLeft(i.id)} className={`p-3 border-2 rounded cursor-pointer ${userAnswers.selected_left === i.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'} ${pairId ? 'opacity-50' : ''}`}>{i.q} {pairId && <span className={`inline-block w-3 h-3 rounded-full ml-2 ${color}`}></span>}</div>
+                                })}</div>
+                                <div className="space-y-2">{testData.matching.right.map(i => (
+                                    <div key={i.id} onClick={() => handleMatchClickRight(i.id)} className="p-3 border rounded cursor-pointer hover:bg-gray-50">{i.a}</div>
+                                ))}</div>
+                            </div>
                         )}
                     </div>
                 )}
+                {/* MCQ Render */}
                 {testData.mcq.length > 0 && (
                     <div>
                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">二、选择题</h3>
-                        <div className="space-y-6">{testData.mcq.map((item, idx) => { const userVal = userAnswers[`mcq_${item.id}`]; const isCorrect = isReview ? userVal === item.answer : undefined; return (<div key={item.id} className={`p-4 rounded-xl ${isReview ? (isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200') : ''}`}><p className="font-bold mb-2">{idx+1}. {item.question} {isReview && !isCorrect && <span className="ml-2 text-red-500 text-sm font-bold">正确: {item.answer}</span>}</p><div className="grid grid-cols-2 gap-2">{item.allOptions.map((opt, oid) => { const isSelected = userVal === opt; let style = "bg-white hover:bg-gray-50"; if (isReview) { if (opt === item.answer) style = "bg-green-200 border-green-500"; else if (isSelected) style = "bg-red-200 border-red-500"; } else if (isSelected) { style = "bg-indigo-100 border-indigo-500"; } return (<button key={oid} onClick={() => !isReview && setUserAnswers({...userAnswers, [`mcq_${item.id}`]: opt})} className={`p-2 border rounded text-left ${style}`}>{opt}</button>) })}</div></div>) })}</div>
+                        <div className="space-y-6">{testData.mcq.map((item, idx) => {
+                            const userVal = userAnswers[`mcq_${item.id}`];
+                            const isCorrect = isReview ? userVal === item.answer : undefined;
+                            return (
+                            <div key={item.id} className={`p-4 rounded-xl ${isReview ? (isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200') : ''}`}>
+                                <p className="font-bold mb-2">{idx+1}. {item.question} {isReview && !isCorrect && <span className="ml-2 text-red-500 text-sm font-bold">正确: {item.answer}</span>}</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {item.allOptions.map((opt, oid) => {
+                                        const isSelected = userVal === opt;
+                                        let style = "bg-white hover:bg-gray-50";
+                                        if (isReview) {
+                                            if (opt === item.answer) style = "bg-green-200 border-green-500";
+                                            else if (isSelected) style = "bg-red-200 border-red-500";
+                                        } else if (isSelected) {
+                                            style = "bg-indigo-100 border-indigo-500";
+                                        }
+                                        return (
+                                        <button key={oid} onClick={() => !isReview && setUserAnswers({...userAnswers, [`mcq_${item.id}`]: opt})} className={`p-2 border rounded text-left ${style}`}>{opt}</button>
+                                    )})}
+                                </div>
+                            </div>
+                        )})}</div>
                     </div>
                 )}
+                {/* Fill Render */}
                 {testData.fill.length > 0 && (
                     <div>
                          <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">三、填空题</h3>
-                         <div className="space-y-4">{testData.fill.map((item, idx) => { const userVal = userAnswers[`fill_${item.id}`] || ''; const isCorrect = isReview ? userVal.trim().toLowerCase() === item.answer.trim().toLowerCase() : undefined; return (<div key={item.id} className={`flex flex-col gap-2 p-3 rounded ${isReview ? (isCorrect ? 'bg-green-50' : 'bg-red-50') : ''}`}><div className="flex items-center gap-4"><span className="font-bold md:w-1/3">{idx+1}. {item.question}</span><input disabled={isReview} className="border-b-2 border-gray-300 focus:border-indigo-500 outline-none flex-1 py-1 bg-transparent" onChange={e => setUserAnswers({...userAnswers, [`fill_${item.id}`]: e.target.value})} value={userVal} placeholder={isReview ? "" : "输入答案"}/></div>{isReview && !isCorrect && <p className="text-xs text-green-700 font-bold pl-4">正确答案: {item.answer}</p>}</div>) })}</div>
+                         <div className="space-y-4">{testData.fill.map((item, idx) => {
+                             const userVal = userAnswers[`fill_${item.id}`] || '';
+                             const isCorrect = isReview ? userVal.trim().toLowerCase() === item.answer.trim().toLowerCase() : undefined;
+                             return (
+                                 <div key={item.id} className={`flex flex-col gap-2 p-3 rounded ${isReview ? (isCorrect ? 'bg-green-50' : 'bg-red-50') : ''}`}>
+                                     <div className="flex items-center gap-4">
+                                         <span className="font-bold md:w-1/3">{idx+1}. {item.question}</span>
+                                         <input disabled={isReview} className="border-b-2 border-gray-300 focus:border-indigo-500 outline-none flex-1 py-1 bg-transparent" onChange={e => setUserAnswers({...userAnswers, [`fill_${item.id}`]: e.target.value})} value={userVal} placeholder={isReview ? "" : "输入答案"}/>
+                                     </div>
+                                     {isReview && !isCorrect && <p className="text-xs text-green-700 font-bold pl-4">正确答案: {item.answer}</p>}
+                                 </div>
+                             )
+                         })}</div>
                     </div>
                 )}
             </div>
@@ -870,19 +914,20 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Fixed Logic: No Mistake, Feedback, Answer Reveal, Visual Progress) ---
+// --- Normal Mode (Optimized Logic with Visual Feedback) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
   const [pendingPool, setPendingPool] = useState([]);
   const [currentQ, setCurrentQ] = useState(null);
   
+  // View states
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null); 
+  const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
   const [isFinished, setIsFinished] = useState(false);
   
-  // Visual Stage Tracker (Local state to show instant updates)
+  // Visual Stage Tracker
   const [viewStage, setViewStage] = useState(0);
 
   // Init
@@ -905,7 +950,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
      setCurrentQ(q);
      setShowAnswer(false);
      setQuizFeedback(null);
-     setViewStage(q.score); // Sync visual stage with real score
+     setViewStage(q.score); // Update visual stage to match real score
      if (q.score < 2) prepareOptions(q);
   };
 
@@ -913,12 +958,12 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     let distractors = [];
     if (q.options && Array.isArray(q.options) && q.options.length >= 3) distractors = q.options.slice(0, 3);
     else {
-      const otherAnswers = book.content.filter(item => item.id !== q.id).map(item => item.answer);
+      const otherAnswers = book.content.filter(item => item.id !== q.id && item.answer !== q.answer).map(item => item.answer);
       const uniqueOthers = [...new Set(otherAnswers)].sort(() => Math.random() - 0.5).slice(0, 3);
       while (uniqueOthers.length < 3) uniqueOthers.push("N/A");
       distractors = uniqueOthers;
     }
-    const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
+    const all = Array.from(new Set([q.answer, ...distractors])).sort(() => Math.random() - 0.5);
     setCurrentOptions(all);
   };
 
@@ -928,12 +973,13 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       const isCorrect = opt === currentQ.answer;
       setQuizFeedback({ selected: opt, isCorrect });
       
-      // VISUAL FEEDBACK: Update bar immediately
+      // VISUAL FEEDBACK
       if (isCorrect) {
-          setViewStage(prev => prev + 1); // Show progress
-          setTimeout(() => processResult(true), 800); 
+          setViewStage(prev => Math.min(prev + 1, 3));
+          setTimeout(() => processResult(true), 600); 
       } else {
-          setViewStage(0); // Show regression
+          setViewStage(0);
+          // Stay to show correct answer, manual next required
       }
   };
 
@@ -941,8 +987,8 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   // 1. "Unclear" -> Show Answer + Reset Progress + Wait Next
   const handleUnclear = () => {
       setShowAnswer(true);
-      setViewStage(0); // Visual Reset
-      setQuizFeedback({ isCorrect: false }); // Show "Next" button state
+      setViewStage(0); // Visual Reset immediately
+      setQuizFeedback({ isCorrect: false }); // Set false to indicate "Wrong/Unclear" path
   };
 
   // 2. "Know Answer" -> Show Answer + Ask Confirmation
@@ -952,11 +998,11 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
 
   // 3. Confirmation buttons
   const handleConfirmation = (isCorrect) => {
-      if (isCorrect) setViewStage(prev => prev + 1);
+      if (isCorrect) setViewStage(prev => Math.min(prev + 1, 3));
       else setViewStage(0);
       
       // Add slight delay to let user see the bar change
-      setTimeout(() => processResult(isCorrect), 400);
+      setTimeout(() => processResult(isCorrect), 600);
   };
 
   const processResult = (isCorrect) => {
@@ -967,6 +1013,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     if (isCorrect) newScore += 1; else newScore = 0; 
     if (newScore >= 3) mastered = true;
 
+    // Normal mode updates do NOT trigger mistake book
     onUpdateProgress(currentQ.id, { score: newScore, mastery: mastered, lastReview: Date.now() });
     
     let nextQueue = [...activeQueue];
@@ -976,6 +1023,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     if (mastered) {
         if (nextPending.length > 0) nextQueue.push(nextPending.shift());
     } else {
+        // Penalty spacing: push back
         const insertIndex = newScore === 0 ? Math.min(nextQueue.length, 2) : Math.min(nextQueue.length, 4);
         const updatedQ = { ...currentQ, score: newScore };
         if (insertIndex >= nextQueue.length) nextQueue.push(updatedQ);
@@ -1003,7 +1051,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative">
           {/* Dynamic Progress Bar */}
           <div className="h-2 bg-gray-100 w-full">
-              <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${Math.min((viewStage / 3) * 100, 100)}%` }}></div>
+              <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${(viewStage / 3) * 100}%` }}></div>
           </div>
           
           <div className="flex-1 flex items-center justify-center p-8 text-center flex-col">
@@ -1035,8 +1083,8 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
                      <button onClick={() => processResult(false)} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center"><ChevronRight className="mr-2"/> 下一题 (继续复习)</button>
                    ) : (
                      <div className="grid grid-cols-2 gap-4">
-                       <button onClick={() => handleConfirmation(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 记错了</button>
-                       <button onClick={() => handleConfirmation(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 答对了</button>
+                       <button onClick={() => handleConfirmation(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><ThumbsDown className="mr-1" /> 记错了</button>
+                       <button onClick={() => handleConfirmation(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><ThumbsUp className="mr-1" /> 答对了</button>
                      </div>
                    )
                 )
@@ -1245,6 +1293,7 @@ export default function App() {
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 justify-items-center">
                   {myBooks.map(id => books.find(b => b.id === id)).filter(b => b).map(book => (
                     <div key={book.id} className="relative group">
+                        {/* HOME: Only Remove, No Edit/Delete */}
                         <BookCard 
                           book={book} 
                           isOwner={false} 
@@ -1254,6 +1303,7 @@ export default function App() {
                           onDelete={() => {}} 
                           onRemove={removeMyBook}
                         />
+                        {/* 右上角移除按钮 */}
                         <button 
                           onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} 
                           className="absolute -top-2 -right-2 p-2 bg-white text-gray-400 rounded-full shadow-lg hover:bg-gray-100 hover:text-red-500 border border-gray-100 transition opacity-0 group-hover:opacity-100"
