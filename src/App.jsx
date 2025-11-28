@@ -31,7 +31,7 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X
+  LogIn, ChevronRight, X, ThumbsUp, ThumbsDown, GraduationCap
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
@@ -921,13 +921,12 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const [pendingPool, setPendingPool] = useState([]);
   const [currentQ, setCurrentQ] = useState(null);
   
-  // View states
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
   const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
   const [isFinished, setIsFinished] = useState(false);
   
-  // Visual Stage Tracker
+  // Visual Stage Tracker (Local state to show instant updates)
   const [viewStage, setViewStage] = useState(0);
 
   // Init
@@ -950,7 +949,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
      setCurrentQ(q);
      setShowAnswer(false);
      setQuizFeedback(null);
-     setViewStage(q.score); // Update visual stage to match real score
+     setViewStage(q.score); // Sync visual stage with real score
      if (q.score < 2) prepareOptions(q);
   };
 
@@ -973,13 +972,12 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       const isCorrect = opt === currentQ.answer;
       setQuizFeedback({ selected: opt, isCorrect });
       
-      // VISUAL FEEDBACK
+      // VISUAL FEEDBACK: Update bar immediately
       if (isCorrect) {
           setViewStage(prev => Math.min(prev + 1, 3));
           setTimeout(() => processResult(true), 600); 
       } else {
-          setViewStage(0);
-          // Stay to show correct answer, manual next required
+          setViewStage(0); // Visual reset to 0
       }
   };
 
@@ -988,7 +986,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const handleUnclear = () => {
       setShowAnswer(true);
       setViewStage(0); // Visual Reset immediately
-      setQuizFeedback({ isCorrect: false }); // Set false to indicate "Wrong/Unclear" path
+      setQuizFeedback({ isCorrect: false }); // Show "Next" button state (Forces wrong)
   };
 
   // 2. "Know Answer" -> Show Answer + Ask Confirmation
@@ -1051,7 +1049,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative">
           {/* Dynamic Progress Bar */}
           <div className="h-2 bg-gray-100 w-full">
-              <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${(viewStage / 3) * 100}%` }}></div>
+              <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${Math.min((viewStage / 3) * 100, 100)}%` }}></div>
           </div>
           
           <div className="flex-1 flex items-center justify-center p-8 text-center flex-col">
