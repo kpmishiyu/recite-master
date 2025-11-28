@@ -31,11 +31,11 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X 
+  LogIn, ChevronRight, X, ThumbsUp, ThumbsDown, GraduationCap
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
-// ✅ 已保留您的配置
+// ✅ 已填入您的真实配置
 const firebaseConfig = {
  apiKey: "AIzaSyDEFFqO1tnw7YZQCFbYmKiluAwjoACXJE0",
  authDomain: "recite-master.firebaseapp.com",
@@ -106,7 +106,6 @@ const LoginView = ({ onLogin }) => {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // 登录成功后，onAuthStateChanged 会自动处理跳转，无需手动 onLogin()
     } catch (error) {
       console.error("Google login failed:", error);
       alert("登录失败: " + error.message);
@@ -841,64 +840,20 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                                 })}
                              </div>
                         ) : (
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-2">{testData.matching.left.map(i => {
-                                    const pairId = userAnswers[`match_left_${i.id}`];
-                                    let color = pairId ? pairColors[Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort().indexOf(`match_left_${i.id}`) % pairColors.length] : '';
-                                    return <div key={i.id} onClick={() => handleMatchClickLeft(i.id)} className={`p-3 border-2 rounded cursor-pointer ${userAnswers.selected_left === i.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'} ${pairId ? 'opacity-50' : ''}`}>{i.q} {pairId && <span className={`inline-block w-3 h-3 rounded-full ml-2 ${color}`}></span>}</div>
-                                })}</div>
-                                <div className="space-y-2">{testData.matching.right.map(i => (
-                                    <div key={i.id} onClick={() => handleMatchClickRight(i.id)} className="p-3 border rounded cursor-pointer hover:bg-gray-50">{i.a}</div>
-                                ))}</div>
-                            </div>
+                            <div className="grid grid-cols-2 gap-8"><div className="space-y-2">{testData.matching.left.map(i => { const pairId = userAnswers[`match_left_${i.id}`]; const isSelected = userAnswers.selected_left === i.id; let badgeColor = null, pairNum = null; if (pairId) { const allPairs = Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort(); const pairIdx = allPairs.indexOf(`match_left_${i.id}`); pairNum = pairIdx + 1; badgeColor = pairColors[pairIdx % pairColors.length]; } return (<div key={i.id} onClick={() => handleMatchClickLeft(i.id)} className={`relative p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 flex items-center justify-between ${isSelected ? 'border-indigo-500 bg-indigo-50 shadow-md transform scale-[1.02]' : 'border-gray-200 hover:border-indigo-300'} ${pairId ? 'border-transparent bg-gray-50 opacity-80' : ''}`}><span className="text-sm font-medium text-gray-700">{i.q}</span>{pairId && <span className={`${badgeColor} text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full`}>{pairNum}</span>}</div>) })}</div><div className="space-y-2">{testData.matching.right.map(i => ( <div key={i.id} onClick={() => handleMatchClickRight(i.id)} className="p-3 border rounded cursor-pointer hover:bg-gray-50">{i.a}</div> ))}</div></div>
                         )}
                     </div>
                 )}
-                {/* MCQ Render */}
                 {testData.mcq.length > 0 && (
                     <div>
                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">二、选择题</h3>
-                        <div className="space-y-6">{testData.mcq.map((item, idx) => {
-                            const userVal = userAnswers[`mcq_${item.id}`];
-                            const isCorrect = isReview ? userVal === item.answer : undefined;
-                            return (
-                            <div key={item.id} className={`p-4 rounded-xl ${isReview ? (isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200') : ''}`}>
-                                <p className="font-bold mb-2">{idx+1}. {item.question} {isReview && !isCorrect && <span className="ml-2 text-red-500 text-sm font-bold">正确: {item.answer}</span>}</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {item.allOptions.map((opt, oid) => {
-                                        const isSelected = userVal === opt;
-                                        let style = "bg-white hover:bg-gray-50";
-                                        if (isReview) {
-                                            if (opt === item.answer) style = "bg-green-200 border-green-500";
-                                            else if (isSelected) style = "bg-red-200 border-red-500";
-                                        } else if (isSelected) {
-                                            style = "bg-indigo-100 border-indigo-500";
-                                        }
-                                        return (
-                                        <button key={oid} onClick={() => !isReview && setUserAnswers({...userAnswers, [`mcq_${item.id}`]: opt})} className={`p-2 border rounded text-left ${style}`}>{opt}</button>
-                                    )})}
-                                </div>
-                            </div>
-                        )})}</div>
+                        <div className="space-y-6">{testData.mcq.map((item, idx) => { const userVal = userAnswers[`mcq_${item.id}`]; const isCorrect = isReview ? userVal === item.answer : undefined; return (<div key={item.id} className={`p-4 rounded-xl ${isReview ? (isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200') : ''}`}><p className="font-bold mb-2">{idx+1}. {item.question} {isReview && !isCorrect && <span className="ml-2 text-red-500 text-sm font-bold">正确: {item.answer}</span>}</p><div className="grid grid-cols-2 gap-2">{item.allOptions.map((opt, oid) => { const isSelected = userVal === opt; let style = "bg-white hover:bg-gray-50"; if (isReview) { if (opt === item.answer) style = "bg-green-200 border-green-500"; else if (isSelected) style = "bg-red-200 border-red-500"; } else if (isSelected) { style = "bg-indigo-100 border-indigo-500"; } return (<button key={oid} onClick={() => !isReview && setUserAnswers({...userAnswers, [`mcq_${item.id}`]: opt})} className={`p-2 border rounded text-left ${style}`}>{opt}</button>) })}</div></div>) })}</div>
                     </div>
                 )}
-                {/* Fill Render */}
                 {testData.fill.length > 0 && (
                     <div>
                          <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">三、填空题</h3>
-                         <div className="space-y-4">{testData.fill.map((item, idx) => {
-                             const userVal = userAnswers[`fill_${item.id}`] || '';
-                             const isCorrect = isReview ? userVal.trim().toLowerCase() === item.answer.trim().toLowerCase() : undefined;
-                             return (
-                                 <div key={item.id} className={`flex flex-col gap-2 p-3 rounded ${isReview ? (isCorrect ? 'bg-green-50' : 'bg-red-50') : ''}`}>
-                                     <div className="flex items-center gap-4">
-                                         <span className="font-bold md:w-1/3">{idx+1}. {item.question}</span>
-                                         <input disabled={isReview} className="border-b-2 border-gray-300 focus:border-indigo-500 outline-none flex-1 py-1 bg-transparent" onChange={e => setUserAnswers({...userAnswers, [`fill_${item.id}`]: e.target.value})} value={userVal} placeholder={isReview ? "" : "输入答案"}/>
-                                     </div>
-                                     {isReview && !isCorrect && <p className="text-xs text-green-700 font-bold pl-4">正确答案: {item.answer}</p>}
-                                 </div>
-                             )
-                         })}</div>
+                         <div className="space-y-4">{testData.fill.map((item, idx) => { const userVal = userAnswers[`fill_${item.id}`] || ''; const isCorrect = isReview ? userVal.trim().toLowerCase() === item.answer.trim().toLowerCase() : undefined; return (<div key={item.id} className={`flex flex-col gap-2 p-3 rounded ${isReview ? (isCorrect ? 'bg-green-50' : 'bg-red-50') : ''}`}><div className="flex items-center gap-4"><span className="font-bold md:w-1/3">{idx+1}. {item.question}</span><input disabled={isReview} className="border-b-2 border-gray-300 focus:border-indigo-500 outline-none flex-1 py-1 bg-transparent" onChange={e => setUserAnswers({...userAnswers, [`fill_${item.id}`]: e.target.value})} value={userVal} placeholder={isReview ? "" : "输入答案"}/></div>{isReview && !isCorrect && <p className="text-xs text-green-700 font-bold pl-4">正确答案: {item.answer}</p>}</div>) })}</div>
                     </div>
                 )}
             </div>
@@ -915,7 +870,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Optimized - No Mistake Recording, Better UI) ---
+// --- Normal Mode (Fixed Logic: No Mistake, Feedback, Answer Reveal, Visual Progress) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
@@ -924,9 +879,12 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   
   const [showAnswer, setShowAnswer] = useState(false);
   const [currentOptions, setCurrentOptions] = useState([]);
-  const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
+  const [quizFeedback, setQuizFeedback] = useState(null); 
   const [isFinished, setIsFinished] = useState(false);
   
+  // Visual Stage Tracker (Local state to show instant updates)
+  const [viewStage, setViewStage] = useState(0);
+
   // Init
   useEffect(() => {
     let initialQueue = book.content.map(q => {
@@ -947,6 +905,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
      setCurrentQ(q);
      setShowAnswer(false);
      setQuizFeedback(null);
+     setViewStage(q.score); // Sync visual stage with real score
      if (q.score < 2) prepareOptions(q);
   };
 
@@ -963,25 +922,41 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     setCurrentOptions(all);
   };
 
-  // Quiz Interaction
+  // Stage 1 & 2 Interaction
   const handleOptionClick = (opt) => {
       if (quizFeedback) return; 
       const isCorrect = opt === currentQ.answer;
       setQuizFeedback({ selected: opt, isCorrect });
+      
+      // VISUAL FEEDBACK: Update bar immediately
       if (isCorrect) {
+          setViewStage(prev => prev + 1); // Show progress
           setTimeout(() => processResult(true), 800); 
+      } else {
+          setViewStage(0); // Show regression
       }
   };
 
-  // Flashcard Interaction
-  const handleFlashcard = (type) => {
-      if (type === 'unknown') {
-          setShowAnswer(true); // SHOW ANSWER FIRST
-      } else if (type === 'correct') {
-          processResult(true);
-      } else if (type === 'wrong') {
-          processResult(false);
-      }
+  // Stage 3 Interaction (Flashcard)
+  // 1. "Unclear" -> Show Answer + Reset Progress + Wait Next
+  const handleUnclear = () => {
+      setShowAnswer(true);
+      setViewStage(0); // Visual Reset
+      setQuizFeedback({ isCorrect: false }); // Show "Next" button state
+  };
+
+  // 2. "Know Answer" -> Show Answer + Ask Confirmation
+  const handleKnowAnswer = () => {
+      setShowAnswer(true);
+  };
+
+  // 3. Confirmation buttons
+  const handleConfirmation = (isCorrect) => {
+      if (isCorrect) setViewStage(prev => prev + 1);
+      else setViewStage(0);
+      
+      // Add slight delay to let user see the bar change
+      setTimeout(() => processResult(isCorrect), 400);
   };
 
   const processResult = (isCorrect) => {
@@ -992,7 +967,6 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     if (isCorrect) newScore += 1; else newScore = 0; 
     if (newScore >= 3) mastered = true;
 
-    // NO mistake flag here
     onUpdateProgress(currentQ.id, { score: newScore, mastery: mastered, lastReview: Date.now() });
     
     let nextQueue = [...activeQueue];
@@ -1027,8 +1001,21 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
          <div className="flex items-center gap-2"><Layers size={18} className="text-indigo-500" /><span>剩余: {activeQueue.length + pendingPool.length}</span></div>
       </div>
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 min-h-[400px] flex flex-col relative">
-          <div className="h-2 bg-gray-100 w-full"><div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(currentQ.score / 3) * 100}%` }}></div></div>
-          <div className="flex-1 flex items-center justify-center p-8 text-center flex-col"><h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>{!isQuizPhase && showAnswer && (<div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full"><p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p></div>)}</div>
+          {/* Dynamic Progress Bar */}
+          <div className="h-2 bg-gray-100 w-full">
+              <div className="h-full bg-green-500 transition-all duration-500 ease-out" style={{ width: `${Math.min((viewStage / 3) * 100, 100)}%` }}></div>
+          </div>
+          
+          <div className="flex-1 flex items-center justify-center p-8 text-center flex-col">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-8">{currentQ.question}</h2>
+            {/* Answer Reveal Area */}
+            {(!isQuizPhase && showAnswer) && (
+              <div className="p-6 bg-blue-50 rounded-xl animate-fade-in w-full border-l-4 border-blue-500 shadow-sm">
+                <p className="text-xl text-blue-800 font-medium">{currentQ.answer}</p>
+              </div>
+            )}
+          </div>
+
           <div className="p-6 bg-gray-50 border-t border-gray-100">
             {isQuizPhase ? (
                <div className="w-full">
@@ -1036,10 +1023,22 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
                  {quizFeedback && !quizFeedback.isCorrect && (<div className="text-center animate-bounce-in p-4 bg-red-50 border border-red-100 rounded-lg"><span className="text-red-500 font-bold text-lg block mb-3">正确答案是：{currentQ.answer}</span><button onClick={() => processResult(false)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition transform active:scale-95 flex items-center justify-center mx-auto"><ChevronRight className="mr-1"/> 下一题 (记住了)</button></div>)}
                </div>
             ) : (
+               // Stage 3 Logic
                !showAnswer ? (
-                  <div className="grid grid-cols-2 gap-4"><button onClick={() => handleFlashcard('unknown')} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button><button onClick={() => handleFlashcard('correct')} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button onClick={handleUnclear} className="py-4 rounded-xl bg-gray-200 text-gray-700 font-bold text-lg hover:bg-gray-300 transition transform active:scale-95">不清楚</button>
+                    <button onClick={handleKnowAnswer} className="py-4 rounded-xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition transform active:scale-95 shadow-lg shadow-indigo-200">知道答案</button>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4"><button onClick={() => handleFlashcard('wrong')} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 还是没记住</button><button onClick={() => handleFlashcard('correct')} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 现在记住了</button></div>
+                   // If came from Unclear (Feedback is false), only show Next button.
+                   quizFeedback?.isCorrect === false ? (
+                     <button onClick={() => processResult(false)} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 flex items-center justify-center"><ChevronRight className="mr-2"/> 下一题 (继续复习)</button>
+                   ) : (
+                     <div className="grid grid-cols-2 gap-4">
+                       <button onClick={() => handleConfirmation(false)} className="py-4 rounded-xl bg-red-100 text-red-600 font-bold text-lg hover:bg-red-200 transition transform active:scale-95 flex items-center justify-center gap-2"><XCircle /> 记错了</button>
+                       <button onClick={() => handleConfirmation(true)} className="py-4 rounded-xl bg-green-100 text-green-600 font-bold text-lg hover:bg-green-200 transition transform active:scale-95 flex items-center justify-center gap-2"><CheckCircle /> 答对了</button>
+                     </div>
+                   )
                 )
             )}
           </div>
@@ -1086,7 +1085,7 @@ export default function App() {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-            await signInAnonymously(auth);
+            // await signInAnonymously(auth); // 移除自动匿名
         }
     };
     initAuth();
@@ -1184,15 +1183,11 @@ export default function App() {
       const currentBookProgress = userProgress[bookId] || {};
       const updatedBookProgress = {
           ...currentBookProgress,
-          [qId]: resultObj._reset ? resultObj : { ...currentBookProgress[qId], ...resultObj }
+          [qId]: { ...currentBookProgress[qId], ...resultObj }
       };
-      const newFullProgress = {
-          ...userProgress,
-          [bookId]: updatedBookProgress
-      };
-      setUserProgress(newFullProgress);
+      setUserProgress({ ...userProgress, [bookId]: updatedBookProgress });
       await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'profile'), {
-          progress: newFullProgress
+          progress: { ...userProgress, [bookId]: updatedBookProgress }
       }, { merge: true });
   };
 
@@ -1250,7 +1245,6 @@ export default function App() {
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 justify-items-center">
                   {myBooks.map(id => books.find(b => b.id === id)).filter(b => b).map(book => (
                     <div key={book.id} className="relative group">
-                        {/* HOME: Only Remove, No Edit/Delete */}
                         <BookCard 
                           book={book} 
                           isOwner={false} 
@@ -1260,7 +1254,6 @@ export default function App() {
                           onDelete={() => {}} 
                           onRemove={removeMyBook}
                         />
-                        {/* 右上角移除按钮 */}
                         <button 
                           onClick={(e) => { e.stopPropagation(); removeMyBook(book.id); }} 
                           className="absolute -top-2 -right-2 p-2 bg-white text-gray-400 rounded-full shadow-lg hover:bg-gray-100 hover:text-red-500 border border-gray-100 transition opacity-0 group-hover:opacity-100"
