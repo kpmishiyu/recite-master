@@ -256,7 +256,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
           <div onClick={() => onSelectMode('review')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-green-500 group hover:-translate-y-1">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition"><Clock size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">复习模式</h2>
-            <p className="text-gray-500">基于记忆曲线复习。</p>
+            <p className="text-gray-500">基于记忆曲线复习，错题自动重现。</p>
           </div>
           <div onClick={() => onSelectMode('test')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-teal-500 group hover:-translate-y-1">
             <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition"><FileText size={32} /></div>
@@ -1125,13 +1125,103 @@ const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
     return (<div className="flex flex-col h-full justify-center items-center p-4 relative"><button onClick={onExit} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><XCircle size={24} className="text-gray-500"/></button><div className="text-gray-400 font-mono mb-8">Q: {idx + 1} / {questions.length}</div><div className="flex-1 flex flex-col justify-center items-center w-full"><h2 className="text-3xl md:text-5xl font-bold mb-8 text-center leading-snug min-h-[120px]">{text}{!buzzed && <span className="animate-pulse text-indigo-500">|</span>}</h2>{showAnswer && (<div className="animate-bounce-in bg-indigo-50 px-8 py-4 rounded-2xl mb-8"><p className="text-2xl text-indigo-800 font-bold">{questions[idx].answer}</p></div>)}</div><div className="h-32 w-full flex items-center justify-center">{!buzzed ? (<button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-2xl hover:scale-105 transition active:scale-95 flex flex-col items-center justify-center"><Zap size={32} className="mb-2"/> 抢答</button>) : (<div className="flex gap-6 w-full max-w-md animate-fade-in"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 text-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl hover:bg-green-200 text-xl">答对</button></div>)}</div></div>);
 };
 
-// --- Review Mode (Standard Spaced Repetition) ---
+// --- Review Mode (Updated: Spaced Re-queue) ---
 const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
-    const [queue, setQueue] = useState([]); const [currentQ, setCurrentQ] = useState(null); const [showAnswer, setShowAnswer] = useState(false);
-    useEffect(() => { const now = Date.now(); const reviewQueue = book.content.map(q => { const prog = userProgress[q.id]; if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null; return { ...q, ...prog }; }).filter(Boolean); setQueue(reviewQueue); if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]); }, []);
-    const handleReview = (success) => { if (!currentQ) return; let currentStreak = currentQ.reviewStreak || 0; let nextIntervalDays = 1; if (success) { currentStreak += 1; nextIntervalDays = Math.pow(2, currentStreak); } else { currentStreak = 0; } const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000); onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak }); const nextQueue = queue.slice(1); setQueue(nextQueue); if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); } };
-    if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
-    return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center"><div className="text-center mb-4 font-bold">复习模式</div><div className="bg-white rounded-3xl shadow-xl p-10 text-center"><h2 className="text-3xl font-bold mb-8">{currentQ.question}</h2>{showAnswer ? <div className="text-xl text-green-800 mb-8">{currentQ.answer}</div> : <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">查看答案</button>}{showAnswer && <div className="grid grid-cols-2 gap-4"><button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold">忘记了</button><button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold">记得</button></div>}</div><button onClick={onExit} className="mt-6 text-gray-500">退出</button></div>);
+  const [queue, setQueue] = useState([]);
+  const [currentQ, setCurrentQ] = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  
+  useEffect(() => {
+    const now = Date.now();
+    const reviewQueue = book.content.map(q => {
+      const prog = userProgress[q.id];
+      if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null;
+      return { ...q, ...prog };
+    }).filter(Boolean);
+    setQueue(reviewQueue);
+    if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]);
+  }, []);
+
+  const handleReview = (success) => {
+    if (!currentQ) return;
+
+    let currentStreak = currentQ.reviewStreak || 0;
+    let nextIntervalDays = 1;
+
+    if (success) {
+        // Success: Standard SRS upgrade
+        currentStreak += 1;
+        nextIntervalDays = Math.pow(2, currentStreak);
+        
+        const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000);
+        onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak });
+        
+        // Remove from current session queue
+        const nextQueue = queue.slice(1);
+        setQueue(nextQueue);
+        
+        if (nextQueue.length > 0) {
+            setCurrentQ(nextQueue[0]);
+            setShowAnswer(false);
+        } else {
+            setCurrentQ(null);
+        }
+    } else {
+        // Fail: Reset streak, reschedule for tomorrow, BUT re-insert into session
+        currentStreak = 0;
+        const nextDate = Date.now() + (24 * 60 * 60 * 1000);
+        onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: 0 });
+
+        // Re-queue logic: insert at index 4 (or end) to force re-learning in this session
+        const nextQueue = queue.slice(1);
+        const insertIndex = Math.min(nextQueue.length, 4); // Spaced repetition within session
+        
+        // Create a copy to re-insert
+        const retryQ = { ...currentQ };
+        nextQueue.splice(insertIndex, 0, retryQ);
+        
+        setQueue(nextQueue);
+
+        // Move to next immediately
+        if (nextQueue.length > 0) {
+            setCurrentQ(nextQueue[0]);
+            setShowAnswer(false);
+        } else {
+             // Edge case: if queue was empty (last item failed), show it again immediately
+             setCurrentQ(retryQ);
+             setShowAnswer(false);
+        }
+    }
+  };
+
+  if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
+
+  return (
+    <div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center">
+       <div className="text-center mb-4 font-bold text-green-600 flex items-center justify-center gap-2"><Clock size={20}/> 复习模式 (剩余: {queue.length})</div>
+       <div className="bg-white rounded-3xl shadow-xl p-10 text-center border-t-4 border-green-500 min-h-[400px] flex flex-col">
+          <div className="flex-1 flex items-center justify-center flex-col">
+            <h2 className="text-3xl font-bold mb-8 text-gray-800">{currentQ.question}</h2>
+            {showAnswer && (
+                <div className="p-6 bg-green-50 rounded-xl w-full animate-fade-in">
+                    <p className="text-xl text-green-800 font-medium">{currentQ.answer}</p>
+                </div>
+            )}
+          </div>
+          <div className="mt-8">
+            {!showAnswer ? (
+               <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transform active:scale-95 transition">查看答案</button>
+            ) : (
+               <div className="grid grid-cols-2 gap-4">
+                 <button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition">忘记了 (重来)</button>
+                 <button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold hover:bg-green-200 transition">记得 (下次 {Math.pow(2, (currentQ.reviewStreak || 0) + 1)}天后)</button>
+               </div>
+            )}
+          </div>
+       </div>
+       <button onClick={onExit} className="mt-6 text-gray-500 hover:text-gray-700">退出复习</button>
+    </div>
+  );
 };
 
 // --- MAIN APP ---
