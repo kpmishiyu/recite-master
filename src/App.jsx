@@ -31,7 +31,7 @@ import {
   AlertCircle, FileText, CheckSquare, RefreshCw, 
   PieChart, Eye, List, Trophy, Code, BookOpen, Layers,
   Activity, Flame, TrendingUp, AlertTriangle, Settings,
-  LogIn, ChevronRight, X, ThumbsUp, ThumbsDown, GraduationCap
+  LogIn, ChevronRight, X, ThumbsUp, ThumbsDown, GraduationCap, HelpCircle, Check
 } from 'lucide-react';
 
 // --- Firebase Configuration ---
@@ -153,10 +153,6 @@ const LoginView = ({ onLogin }) => {
             游客试用
           </button>
         </div>
-        
-        <p className="text-xs text-gray-400 mt-6">
-           登录即代表同意我们的服务条款。
-        </p>
       </div>
     </div>
   );
@@ -261,7 +257,7 @@ const ModeSelection = ({ book, userProgress, onBack, onSelectMode }) => {
           <div onClick={() => onSelectMode('test')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-teal-500 group hover:-translate-y-1">
             <div className="bg-teal-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-teal-600 group-hover:scale-110 transition"><FileText size={32} /></div>
             <h2 className="text-2xl font-bold mb-2 text-gray-800">测验卷</h2>
-            <p className="text-gray-500">生成一份包含配对、选择、填空的模拟试卷。</p>
+            <p className="text-gray-500">配对、选择、填空、判断，全方位考核。</p>
           </div>
           <div onClick={() => onSelectMode('buzz')} className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all cursor-pointer border-t-8 border-purple-500 group hover:-translate-y-1">
             <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6 text-purple-600 group-hover:scale-110 transition"><Zap size={32} /></div>
@@ -615,7 +611,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
 // --- Test Mode (Full Features & Safety & Dedupe Fix) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
-    const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
+    const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, tf: 0, timeLimit: false, duration: 15 });
     const [testData, setTestData] = useState(null);
     const [userAnswers, setUserAnswers] = useState({}); 
     const [score, setScore] = useState(null); 
@@ -624,11 +620,12 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
 
     const maxQuestions = book.content.length;
     const maxMatching = Math.floor(maxQuestions / 2);
-    const totalSelected = config.matching + config.mcq + config.fill;
-    const isConfigValid = totalSelected > 0 && totalSelected <= maxQuestions;
+    // Config validation
+    const totalSelected = config.matching + config.mcq + config.fill + config.tf;
+    const isConfigValid = totalSelected > 0 && totalSelected <= maxQuestions * 3; // Allow duplication for test
   
     useEffect(() => {
-        setConfig({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
+        setConfig({ matching: 0, mcq: 0, fill: 0, tf: 0, timeLimit: false, duration: 15 });
     }, []);
   
     useEffect(() => {
@@ -648,34 +645,41 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     }, [viewMode, config.timeLimit, timeLeft]);
 
     const autoFillConfig = () => {
-        const perType = Math.floor(maxQuestions / 3);
-        const remain = maxQuestions % 3;
+        const perType = Math.floor(maxQuestions / 4); // Split into 4 types
         const safeMatching = Math.min(perType, maxMatching);
         setConfig({
             ...config,
             matching: safeMatching,
-            mcq: perType + (remain > 0 ? 1 : 0),
-            fill: perType + (remain > 1 ? 1 : 0)
+            mcq: perType,
+            fill: perType,
+            tf: perType
         });
     };
   
     const generateTest = () => {
       if (!isConfigValid) return;
-      let pool = shuffleArray(book.content);
-      let currentPoolIdx = 0;
-      const getQuestions = (count) => {
-        const slice = pool.slice(currentPoolIdx, currentPoolIdx + count);
-        currentPoolIdx += count;
-        return slice;
+      let pool = shuffleArray([...book.content]); // Clone
+      
+      // Helper to get random questions (reuse pool if needed)
+      const getRandomQ = (count) => {
+         const selected = [];
+         for(let i=0; i<count; i++) {
+             selected.push(pool[i % pool.length]); // Cycle if not enough
+         }
+         // Rotate pool for next batch randomness
+         pool = shuffleArray(pool); 
+         return selected;
       };
-      const matchingQ = getQuestions(config.matching);
-      const mcqQ = getQuestions(config.mcq);
-      const fillQ = getQuestions(config.fill);
+
+      const matchingQ = getRandomQ(config.matching);
+      const mcqQ = getRandomQ(config.mcq);
+      const fillQ = getRandomQ(config.fill);
+      const tfQ = getRandomQ(config.tf);
   
-      const matchingPairs = matchingQ.map(q => ({ id: q.id, q: q.question, a: q.answer }));
+      const matchingPairs = matchingQ.map(q => ({ id: q.id + '_match', q: q.question, a: q.answer }));
       const matchingRight = shuffleArray([...matchingPairs]);
       
-      // FIX: Dedupe logic applied here too
+      // MCQ Dedupe Logic
       const mcqData = mcqQ.map(q => {
         let options = q.options && q.options.length >= 3 ? q.options.slice(0, 3) : [];
         if (options.length < 3) {
@@ -691,10 +695,33 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
            while(options.length < 3) options.push(`选项 ${options.length + 1}`);
         }
         const all = shuffleArray([q.answer, ...options]);
-        return { ...q, allOptions: all };
+        return { ...q, allOptions: all, id: q.id + '_mcq' };
       });
 
-      setTestData({ matching: { left: matchingPairs, right: matchingRight }, mcq: mcqData, fill: fillQ });
+      // True/False Logic
+      const tfData = tfQ.map(q => {
+         let isTrue = Math.random() > 0.5;
+         let displayAnswer = q.answer;
+         
+         if (!isTrue) {
+             // Pick a fake answer
+             const others = book.content.filter(i => i.answer.trim() !== q.answer.trim());
+             if (others.length > 0) {
+                 displayAnswer = others[Math.floor(Math.random() * others.length)].answer;
+             } else {
+                 isTrue = true; // Fallback if no other answers
+             }
+         }
+         return { ...q, id: q.id + '_tf', isTrue, displayAnswer };
+      });
+
+      setTestData({ 
+          matching: { left: matchingPairs, right: matchingRight }, 
+          mcq: mcqData, 
+          fill: fillQ.map(q => ({...q, id: q.id + '_fill'})),
+          tf: tfData
+      });
+
       if (config.timeLimit) setTimeLeft(config.duration * 60);
       setViewMode('test');
     };
@@ -708,8 +735,10 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
       const checkAndMark = (qId, isCorrect) => {
           if (isCorrect) correctCount++;
           detail[qId] = isCorrect;
+          // Extract original ID from compound ID (e.g. "abc_mcq" -> "abc")
+          const originalId = qId.split('_')[0];
           if (!isCorrect) {
-              onUpdateProgress(qId, { isMistake: true });
+              onUpdateProgress(originalId, { isMistake: true });
           }
       };
   
@@ -727,8 +756,17 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
          const val = userAnswers[`fill_${item.id}`] || "";
          checkAndMark(item.id, val.trim().toLowerCase() === item.answer.trim().toLowerCase());
       });
+
+      if(testData?.tf) testData.tf.forEach(item => {
+         const val = userAnswers[`tf_${item.id}`]; // true, false, or undefined
+         const userSaidYes = val === true;
+         const isActuallyTrue = item.isTrue;
+         // Correct if (User Said Yes AND It Is True) OR (User Said No AND It Is False)
+         // Basically: userVal === item.isTrue
+         checkAndMark(item.id, val === item.isTrue);
+      });
   
-      const total = config.matching + config.mcq + config.fill;
+      const total = config.matching + config.mcq + config.fill + config.tf;
       let grade = 'F';
       const ratio = total === 0 ? 0 : correctCount / total;
       if (ratio >= 0.95) grade = 'S';
@@ -736,17 +774,29 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
       else if (ratio >= 0.7) grade = 'B';
       else if (ratio >= 0.6) grade = 'C';
 
-      let stats = { matching: {total: config.matching, correct: 0}, mcq: {total: config.mcq, correct: 0}, fill: {total: config.fill, correct: 0} };
+      let stats = { 
+          matching: {total: config.matching, correct: 0}, 
+          mcq: {total: config.mcq, correct: 0}, 
+          fill: {total: config.fill, correct: 0},
+          tf: {total: config.tf, correct: 0}
+      };
+      
+      // Stat counting
       if(testData.matching) testData.matching.left.forEach(item => { if(detail[item.id]) stats.matching.correct++; });
       if(testData.mcq) testData.mcq.forEach(item => { if(detail[item.id]) stats.mcq.correct++; });
       if(testData.fill) testData.fill.forEach(item => { if(detail[item.id]) stats.fill.correct++; });
+      if(testData.tf) testData.tf.forEach(item => { if(detail[item.id]) stats.tf.correct++; });
   
       setScore({ correct: correctCount, total, grade, detail, stats });
       setViewMode('report');
     };
 
+    // --- Matching UI Logic ---
+    // Improved interaction: Click left -> Highlight. Click Right -> Match. 
+    // Click already matched item -> Unmatch.
     const handleMatchClickLeft = (id) => {
         if (viewMode !== 'test') return; 
+        // Check if already matched, if so, remove match
         if (userAnswers[`match_left_${id}`]) {
             const newAns = {...userAnswers};
             delete newAns[`match_left_${id}`];
@@ -759,12 +809,25 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
         if (viewMode !== 'test') return;
         const selectedLeft = userAnswers.selected_left;
         if (selectedLeft) {
+            // Prevent double matching right side
             const isUsed = Object.keys(userAnswers).some(key => key.startsWith('match_left_') && userAnswers[key] === id);
             if (isUsed) return; 
             setUserAnswers({ ...userAnswers, [`match_left_${selectedLeft}`]: id, selected_left: null });
+        } else {
+             // Allow unmatching by clicking right side if matched? 
+             // Harder to find key by value. Simpler to let user click left side to unmatch.
         }
     };
-    const pairColors = ["bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500"];
+    
+    // Pastel colors for matched pairs
+    const pairStyles = [
+        "bg-red-100 border-red-300 text-red-800",
+        "bg-blue-100 border-blue-300 text-blue-800",
+        "bg-green-100 border-green-300 text-green-800",
+        "bg-yellow-100 border-yellow-300 text-yellow-800",
+        "bg-purple-100 border-purple-300 text-purple-800",
+        "bg-pink-100 border-pink-300 text-pink-800",
+    ];
 
     if (viewMode === 'config') {
         return (
@@ -777,8 +840,10 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                     <div><label className="flex justify-between font-bold"><span>配对题</span><span>{config.matching}题</span></label><input type="range" min="0" max={maxMatching} value={config.matching} onChange={e => setConfig({...config, matching: parseInt(e.target.value)})} className="w-full accent-indigo-600"/></div>
                     <div><label className="flex justify-between font-bold"><span>选择题</span><span>{config.mcq}题</span></label><input type="range" min="0" max={maxQuestions} value={config.mcq} onChange={e => setConfig({...config, mcq: parseInt(e.target.value)})} className="w-full accent-indigo-600"/></div>
                     <div><label className="flex justify-between font-bold"><span>填充题</span><span>{config.fill}题</span></label><input type="range" min="0" max={maxQuestions} value={config.fill} onChange={e => setConfig({...config, fill: parseInt(e.target.value)})} className="w-full accent-indigo-600"/></div>
-                    <div className="flex justify-between items-center pt-4 border-t"><div className="flex items-center gap-2"><span className={`text-sm font-bold ${totalSelected > maxQuestions ? 'text-red-500' : 'text-gray-500'}`}>总计: {totalSelected}/{maxQuestions}</span>{totalSelected > maxQuestions && <AlertCircle size={14} className="text-red-500"/>}</div><button onClick={autoFillConfig} className="text-xs text-indigo-600 font-bold hover:underline">智能填满</button></div>
-                    <button disabled={!isConfigValid} onClick={generateTest} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold shadow disabled:opacity-50">开始测验</button>
+                    <div><label className="flex justify-between font-bold"><span>判断题 (新)</span><span>{config.tf}题</span></label><input type="range" min="0" max={maxQuestions} value={config.tf} onChange={e => setConfig({...config, tf: parseInt(e.target.value)})} className="w-full accent-indigo-600"/></div>
+                    
+                    <div className="flex justify-between items-center pt-4 border-t"><div className="flex items-center gap-2"><span className={`text-sm font-bold text-gray-500`}>总计: {totalSelected}</span></div><button onClick={autoFillConfig} className="text-xs text-indigo-600 font-bold hover:underline">智能填满</button></div>
+                    <button disabled={totalSelected === 0} onClick={generateTest} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold shadow disabled:opacity-50">开始测验</button>
                 </div>
             </div>
         )
@@ -794,19 +859,11 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                     <div className="text-2xl font-bold text-gray-800">总分: {score.correct} / {score.total}</div>
                  </div>
                  
-                 <div className="grid grid-cols-3 gap-4 mb-6 text-center">
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                       <div className="text-xs text-gray-500 uppercase font-bold mb-1">配对题</div>
-                       <div className={`text-xl font-bold ${score.stats.matching.correct === score.stats.matching.total ? 'text-green-600' : 'text-gray-800'}`}>{score.stats.matching.correct}/{score.stats.matching.total}</div>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                       <div className="text-xs text-gray-500 uppercase font-bold mb-1">选择题</div>
-                       <div className={`text-xl font-bold ${score.stats.mcq.correct === score.stats.mcq.total ? 'text-green-600' : 'text-gray-800'}`}>{score.stats.mcq.correct}/{score.stats.mcq.total}</div>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                       <div className="text-xs text-gray-500 uppercase font-bold mb-1">填充题</div>
-                       <div className={`text-xl font-bold ${score.stats.fill.correct === score.stats.fill.total ? 'text-green-600' : 'text-gray-800'}`}>{score.stats.fill.correct}/{score.stats.fill.total}</div>
-                    </div>
+                 <div className="grid grid-cols-4 gap-2 mb-6 text-center">
+                    <div className="p-2 bg-gray-50 rounded-lg"><div className="text-[10px] text-gray-500 uppercase font-bold">配对</div><div className="font-bold">{score.stats.matching.correct}/{score.stats.matching.total}</div></div>
+                    <div className="p-2 bg-gray-50 rounded-lg"><div className="text-[10px] text-gray-500 uppercase font-bold">选择</div><div className="font-bold">{score.stats.mcq.correct}/{score.stats.mcq.total}</div></div>
+                    <div className="p-2 bg-gray-50 rounded-lg"><div className="text-[10px] text-gray-500 uppercase font-bold">填空</div><div className="font-bold">{score.stats.fill.correct}/{score.stats.fill.total}</div></div>
+                    <div className="p-2 bg-gray-50 rounded-lg"><div className="text-[10px] text-gray-500 uppercase font-bold">判断</div><div className="font-bold">{score.stats.tf.correct}/{score.stats.tf.total}</div></div>
                  </div>
                  <div className="flex gap-4">
                     <button onClick={() => setViewMode('review')} className="flex-1 py-3 bg-white border-2 border-indigo-100 text-indigo-600 font-bold rounded-xl hover:bg-indigo-50 flex items-center justify-center"><Eye size={18} className="mr-2"/> 重阅试卷 (查看错题)</button>
@@ -834,7 +891,10 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                 {/* Matching Render */}
                 {testData.matching.left.length > 0 && (
                     <div>
-                        <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">一、配对题</h3>
+                        <h3 className="font-bold text-lg mb-6 border-l-4 border-indigo-500 pl-3 flex items-center justify-between">
+                            一、配对题 
+                            {!isReview && <span className="text-xs font-normal text-gray-400">点击左侧选中，再点右侧连接。再次点击已连接项可取消。</span>}
+                        </h3>
                         {isReview ? (
                              <div className="space-y-2">
                                 {testData.matching.left.map((item, idx) => {
@@ -850,18 +910,57 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                              </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-2">{testData.matching.left.map(i => {
-                                    const pairId = userAnswers[`match_left_${i.id}`];
-                                    let color = pairId ? pairColors[Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort().indexOf(`match_left_${i.id}`) % pairColors.length] : '';
-                                    return <div key={i.id} onClick={() => handleMatchClickLeft(i.id)} className={`p-3 border-2 rounded cursor-pointer ${userAnswers.selected_left === i.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'} ${pairId ? 'opacity-50' : ''}`}>{i.q} {pairId && <span className={`inline-block w-3 h-3 rounded-full ml-2 ${color}`}></span>}</div>
-                                })}</div>
-                                <div className="space-y-2">{testData.matching.right.map(i => (
-                                    <div key={i.id} onClick={() => handleMatchClickRight(i.id)} className="p-3 border rounded cursor-pointer hover:bg-gray-50">{i.a}</div>
-                                ))}</div>
+                                <div className="space-y-3">
+                                    {testData.matching.left.map((item, idx) => {
+                                        const pairId = userAnswers[`match_left_${item.id}`];
+                                        const isSelected = userAnswers.selected_left === item.id;
+                                        
+                                        // Determine style
+                                        let containerClass = "border-2 border-gray-200 bg-white hover:border-indigo-300";
+                                        if (isSelected) containerClass = "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200";
+                                        
+                                        // Matched style
+                                        if (pairId) {
+                                            // Find index of pair to assign consistent color
+                                            const allPairs = Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort();
+                                            const pairIndex = allPairs.indexOf(`match_left_${item.id}`);
+                                            containerClass = pairStyles[pairIndex % pairStyles.length];
+                                        }
+
+                                        return (
+                                            <div key={item.id} onClick={() => handleMatchClickLeft(item.id)} className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${containerClass} flex items-center justify-between`}>
+                                                <span className="text-sm font-bold">{item.q}</span>
+                                                {pairId && <CheckCircle size={16} className="opacity-50"/>}
+                                            </div>
+                                        ) 
+                                    })}
+                                </div>
+                                <div className="space-y-3">
+                                    {testData.matching.right.map((item) => {
+                                        // Find if this right item is used
+                                        const pairedLeftKey = Object.keys(userAnswers).find(key => key.startsWith('match_left_') && userAnswers[key] === item.id);
+                                        
+                                        let containerClass = "border-2 border-gray-200 bg-white";
+                                        if (userAnswers.selected_left && !pairedLeftKey) containerClass += " hover:border-indigo-500 hover:bg-indigo-50 cursor-pointer";
+                                        
+                                        if (pairedLeftKey) {
+                                            const allPairs = Object.keys(userAnswers).filter(k => k.startsWith('match_left_')).sort();
+                                            const pairIndex = allPairs.indexOf(pairedLeftKey);
+                                            containerClass = pairStyles[pairIndex % pairStyles.length] + " cursor-pointer"; // Can click to maybe unmatch?
+                                        }
+
+                                        return (
+                                            <div key={item.id} onClick={() => handleMatchClickRight(item.id)} className={`p-4 rounded-xl transition-all duration-200 ${containerClass} flex items-center justify-center text-center`}>
+                                                <span className="text-sm">{item.a}</span>
+                                            </div>
+                                        ) 
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>
                 )}
+                
                 {/* MCQ Render */}
                 {testData.mcq.length > 0 && (
                     <div>
@@ -890,10 +989,68 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
                         )})}</div>
                     </div>
                 )}
+
+                {/* True/False Render */}
+                {testData.tf.length > 0 && (
+                    <div>
+                        <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">三、判断题</h3>
+                        <div className="space-y-6">
+                            {testData.tf.map((item, idx) => {
+                                const userVal = userAnswers[`tf_${item.id}`]; // true / false / undefined
+                                const isCorrect = isReview ? userVal === item.isTrue : undefined;
+                                
+                                return (
+                                    <div key={item.id} className={`p-4 rounded-xl ${isReview ? (isCorrect ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200') : 'bg-gray-50'}`}>
+                                        <div className="flex items-start gap-4 mb-4">
+                                            <span className="font-bold text-gray-500">{idx + 1}.</span>
+                                            <div className="flex-1">
+                                                <div className="font-bold text-gray-800 mb-1">{item.question}</div>
+                                                <div className="text-sm text-gray-600 bg-white px-2 py-1 rounded border inline-block">
+                                                    可能的答案：<span className="font-bold text-indigo-600">{item.displayAnswer}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex gap-4">
+                                            <button 
+                                                disabled={isReview}
+                                                onClick={() => setUserAnswers({...userAnswers, [`tf_${item.id}`]: true})}
+                                                className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition ${
+                                                    userVal === true 
+                                                        ? (isReview && !item.isTrue ? 'bg-red-500 text-white' : 'bg-green-600 text-white')
+                                                        : 'bg-white border hover:bg-green-50 text-green-700'
+                                                }`}
+                                            >
+                                                <CheckCircle size={18}/> 正确
+                                            </button>
+                                            <button 
+                                                disabled={isReview}
+                                                onClick={() => setUserAnswers({...userAnswers, [`tf_${item.id}`]: false})}
+                                                className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition ${
+                                                    userVal === false 
+                                                        ? (isReview && item.isTrue ? 'bg-red-500 text-white' : 'bg-red-600 text-white')
+                                                        : 'bg-white border hover:bg-red-50 text-red-700'
+                                                }`}
+                                            >
+                                                <XCircle size={18}/> 错误
+                                            </button>
+                                        </div>
+                                        {isReview && !isCorrect && (
+                                            <div className="mt-2 text-center text-sm font-bold text-red-500">
+                                                判定错误！应该是：{item.isTrue ? "正确" : "错误"}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 {/* Fill Render */}
                 {testData.fill.length > 0 && (
                     <div>
-                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">三、填空题</h3>
+                         <h3 className="font-bold text-lg mb-4 border-l-4 border-indigo-500 pl-3">四、填空题</h3>
                          <div className="space-y-4">{testData.fill.map((item, idx) => {
                              const userVal = userAnswers[`fill_${item.id}`] || '';
                              const isCorrect = isReview ? userVal.trim().toLowerCase() === item.answer.trim().toLowerCase() : undefined;
@@ -923,7 +1080,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Optimized Logic with Visual Feedback & No Duplicates) ---
+// --- Normal Mode (Optimized - No Mistake Recording, Better UI) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
@@ -982,7 +1139,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
           distractors.push(`选项 ${distractors.length + 1}`);
       }
     }
-    const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
+    const all = Array.from(new Set([q.answer, ...distractors])).sort(() => Math.random() - 0.5);
     setCurrentOptions(all);
   };
 
@@ -1125,103 +1282,13 @@ const BuzzMode = ({ book, onExit, onUpdateProgress }) => {
     return (<div className="flex flex-col h-full justify-center items-center p-4 relative"><button onClick={onExit} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200"><XCircle size={24} className="text-gray-500"/></button><div className="text-gray-400 font-mono mb-8">Q: {idx + 1} / {questions.length}</div><div className="flex-1 flex flex-col justify-center items-center w-full"><h2 className="text-3xl md:text-5xl font-bold mb-8 text-center leading-snug min-h-[120px]">{text}{!buzzed && <span className="animate-pulse text-indigo-500">|</span>}</h2>{showAnswer && (<div className="animate-bounce-in bg-indigo-50 px-8 py-4 rounded-2xl mb-8"><p className="text-2xl text-indigo-800 font-bold">{questions[idx].answer}</p></div>)}</div><div className="h-32 w-full flex items-center justify-center">{!buzzed ? (<button onClick={handleBuzz} className="w-32 h-32 rounded-full bg-red-600 text-white font-black text-2xl shadow-2xl hover:scale-105 transition active:scale-95 flex flex-col items-center justify-center"><Zap size={32} className="mb-2"/> 抢答</button>) : (<div className="flex gap-6 w-full max-w-md animate-fade-in"><button onClick={() => handleAnswer(false)} className="flex-1 py-4 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 text-xl">答错</button><button onClick={() => handleAnswer(true)} className="flex-1 py-4 bg-green-100 text-green-600 font-bold rounded-xl hover:bg-green-200 text-xl">答对</button></div>)}</div></div>);
 };
 
-// --- Review Mode (Updated: Spaced Re-queue) ---
+// --- Review Mode (Standard Spaced Repetition) ---
 const ReviewMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
-  const [queue, setQueue] = useState([]);
-  const [currentQ, setCurrentQ] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-  
-  useEffect(() => {
-    const now = Date.now();
-    const reviewQueue = book.content.map(q => {
-      const prog = userProgress[q.id];
-      if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null;
-      return { ...q, ...prog };
-    }).filter(Boolean);
-    setQueue(reviewQueue);
-    if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]);
-  }, []);
-
-  const handleReview = (success) => {
-    if (!currentQ) return;
-
-    let currentStreak = currentQ.reviewStreak || 0;
-    let nextIntervalDays = 1;
-
-    if (success) {
-        // Success: Standard SRS upgrade
-        currentStreak += 1;
-        nextIntervalDays = Math.pow(2, currentStreak);
-        
-        const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000);
-        onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak });
-        
-        // Remove from current session queue
-        const nextQueue = queue.slice(1);
-        setQueue(nextQueue);
-        
-        if (nextQueue.length > 0) {
-            setCurrentQ(nextQueue[0]);
-            setShowAnswer(false);
-        } else {
-            setCurrentQ(null);
-        }
-    } else {
-        // Fail: Reset streak, reschedule for tomorrow, BUT re-insert into session
-        currentStreak = 0;
-        const nextDate = Date.now() + (24 * 60 * 60 * 1000);
-        onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: 0 });
-
-        // Re-queue logic: insert at index 4 (or end) to force re-learning in this session
-        const nextQueue = queue.slice(1);
-        const insertIndex = Math.min(nextQueue.length, 4); // Spaced repetition within session
-        
-        // Create a copy to re-insert
-        const retryQ = { ...currentQ };
-        nextQueue.splice(insertIndex, 0, retryQ);
-        
-        setQueue(nextQueue);
-
-        // Move to next immediately
-        if (nextQueue.length > 0) {
-            setCurrentQ(nextQueue[0]);
-            setShowAnswer(false);
-        } else {
-             // Edge case: if queue was empty (last item failed), show it again immediately
-             setCurrentQ(retryQ);
-             setShowAnswer(false);
-        }
-    }
-  };
-
-  if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
-
-  return (
-    <div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center">
-       <div className="text-center mb-4 font-bold text-green-600 flex items-center justify-center gap-2"><Clock size={20}/> 复习模式 (剩余: {queue.length})</div>
-       <div className="bg-white rounded-3xl shadow-xl p-10 text-center border-t-4 border-green-500 min-h-[400px] flex flex-col">
-          <div className="flex-1 flex items-center justify-center flex-col">
-            <h2 className="text-3xl font-bold mb-8 text-gray-800">{currentQ.question}</h2>
-            {showAnswer && (
-                <div className="p-6 bg-green-50 rounded-xl w-full animate-fade-in">
-                    <p className="text-xl text-green-800 font-medium">{currentQ.answer}</p>
-                </div>
-            )}
-          </div>
-          <div className="mt-8">
-            {!showAnswer ? (
-               <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transform active:scale-95 transition">查看答案</button>
-            ) : (
-               <div className="grid grid-cols-2 gap-4">
-                 <button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-200 transition">忘记了 (重来)</button>
-                 <button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold hover:bg-green-200 transition">记得 (下次 {Math.pow(2, (currentQ.reviewStreak || 0) + 1)}天后)</button>
-               </div>
-            )}
-          </div>
-       </div>
-       <button onClick={onExit} className="mt-6 text-gray-500 hover:text-gray-700">退出复习</button>
-    </div>
-  );
+    const [queue, setQueue] = useState([]); const [currentQ, setCurrentQ] = useState(null); const [showAnswer, setShowAnswer] = useState(false);
+    useEffect(() => { const now = Date.now(); const reviewQueue = book.content.map(q => { const prog = userProgress[q.id]; if (!prog || !prog.mastery || (prog.nextReview && prog.nextReview > now)) return null; return { ...q, ...prog }; }).filter(Boolean); setQueue(reviewQueue); if (reviewQueue.length > 0) setCurrentQ(reviewQueue[0]); }, []);
+    const handleReview = (success) => { if (!currentQ) return; let currentStreak = currentQ.reviewStreak || 0; let nextIntervalDays = 1; if (success) { currentStreak += 1; nextIntervalDays = Math.pow(2, currentStreak); } else { currentStreak = 0; } const nextDate = Date.now() + (nextIntervalDays * 24 * 60 * 60 * 1000); onUpdateProgress(currentQ.id, { nextReview: nextDate, reviewStreak: currentStreak }); const nextQueue = queue.slice(1); setQueue(nextQueue); if (nextQueue.length > 0) { setCurrentQ(nextQueue[0]); setShowAnswer(false); } else { setCurrentQ(null); } };
+    if (!currentQ) return <div className="flex flex-col items-center justify-center h-full"><CheckCircle size={60} className="text-green-600 mb-4"/><h2 className="text-2xl font-bold">今日复习完成！</h2><button onClick={onExit} className="mt-8 px-6 py-2 bg-gray-800 text-white rounded-lg">返回</button></div>;
+    return (<div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-center"><div className="text-center mb-4 font-bold">复习模式</div><div className="bg-white rounded-3xl shadow-xl p-10 text-center"><h2 className="text-3xl font-bold mb-8">{currentQ.question}</h2>{showAnswer ? <div className="text-xl text-green-800 mb-8">{currentQ.answer}</div> : <button onClick={() => setShowAnswer(true)} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold">查看答案</button>}{showAnswer && <div className="grid grid-cols-2 gap-4"><button onClick={() => handleReview(false)} className="py-4 bg-red-100 text-red-600 rounded-xl font-bold">忘记了 (明天)</button><button onClick={() => handleReview(true)} className="py-4 bg-green-100 text-green-600 rounded-xl font-bold">记得</button></div>}</div><button onClick={onExit} className="mt-6 text-gray-500">退出</button></div>);
 };
 
 // --- MAIN APP ---
