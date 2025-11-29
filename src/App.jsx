@@ -612,7 +612,7 @@ const BookMistakeMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
     );
 };
 
-// --- Test Mode (Full Features & Safety) ---
+// --- Test Mode (Full Features & Safety & Dedupe Fix) ---
 const TestMode = ({ book, onExit, onUpdateProgress }) => {
     const [viewMode, setViewMode] = useState('config'); 
     const [config, setConfig] = useState({ matching: 0, mcq: 0, fill: 0, timeLimit: false, duration: 15 });
@@ -674,17 +674,26 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
   
       const matchingPairs = matchingQ.map(q => ({ id: q.id, q: q.question, a: q.answer }));
       const matchingRight = shuffleArray([...matchingPairs]);
+      
+      // FIX: Dedupe logic applied here too
       const mcqData = mcqQ.map(q => {
         let options = q.options && q.options.length >= 3 ? q.options.slice(0, 3) : [];
         if (options.length < 3) {
-           const otherAnswers = book.content.filter(x => x.id !== q.id).map(x => x.answer);
-           const unique = shuffleArray([...new Set(otherAnswers)]).slice(0, 3);
-           options = unique;
-           while(options.length < 3) options.push("暂无选项");
+           // Filter out current answer AND any duplicates
+           const allAnswers = book.content
+            .filter(item => item.id !== q.id && item.answer.trim() !== q.answer.trim())
+            .map(item => item.answer);
+           
+           const uniquePool = [...new Set(allAnswers)];
+           shuffleArray(uniquePool);
+           options = uniquePool.slice(0, 3);
+           
+           while(options.length < 3) options.push(`选项 ${options.length + 1}`);
         }
         const all = shuffleArray([q.answer, ...options]);
         return { ...q, allOptions: all };
       });
+
       setTestData({ matching: { left: matchingPairs, right: matchingRight }, mcq: mcqData, fill: fillQ });
       if (config.timeLimit) setTimeLeft(config.duration * 60);
       setViewMode('test');
@@ -914,7 +923,7 @@ const TestMode = ({ book, onExit, onUpdateProgress }) => {
     )
 };
 
-// --- Normal Mode (Optimized Logic with Visual Feedback) ---
+// --- Normal Mode (Optimized Logic with Visual Feedback & No Duplicates) ---
 const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const POOL_SIZE = 5; 
   const [activeQueue, setActiveQueue] = useState([]);
@@ -926,7 +935,7 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
   const [quizFeedback, setQuizFeedback] = useState(null); // { selected, isCorrect }
   const [isFinished, setIsFinished] = useState(false);
   
-  // Visual Stage Tracker (Local state to show instant updates)
+  // Visual Stage Tracker
   const [viewStage, setViewStage] = useState(0);
 
   // Init
@@ -949,20 +958,31 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
      setCurrentQ(q);
      setShowAnswer(false);
      setQuizFeedback(null);
-     setViewStage(q.score); // Sync visual stage with real score
+     setViewStage(q.score); // Sync visual stage
      if (q.score < 2) prepareOptions(q);
   };
 
   const prepareOptions = (q) => {
     let distractors = [];
-    if (q.options && Array.isArray(q.options) && q.options.length >= 3) distractors = q.options.slice(0, 3);
-    else {
-      const otherAnswers = book.content.filter(item => item.id !== q.id && item.answer !== q.answer).map(item => item.answer);
-      const uniqueOthers = [...new Set(otherAnswers)].sort(() => Math.random() - 0.5).slice(0, 3);
-      while (uniqueOthers.length < 3) uniqueOthers.push("N/A");
-      distractors = uniqueOthers;
+    if (q.options && Array.isArray(q.options) && q.options.length >= 3) {
+        distractors = q.options.slice(0, 3);
+    } else {
+      // FIX: Exclude current answer string to prevent duplicates
+      const allOtherAnswers = book.content
+        .filter(item => item.id !== q.id && item.answer.trim() !== q.answer.trim())
+        .map(item => item.answer);
+        
+      const uniquePool = [...new Set(allOtherAnswers)];
+      shuffleArray(uniquePool);
+      
+      distractors = uniquePool.slice(0, 3);
+      
+      // Fallback filler if not enough unique answers in book
+      while (distractors.length < 3) {
+          distractors.push(`选项 ${distractors.length + 1}`);
+      }
     }
-    const all = Array.from(new Set([q.answer, ...distractors])).sort(() => Math.random() - 0.5);
+    const all = [q.answer, ...distractors].sort(() => Math.random() - 0.5);
     setCurrentOptions(all);
   };
 
@@ -972,12 +992,12 @@ const NormalMode = ({ book, userProgress, onUpdateProgress, onExit }) => {
       const isCorrect = opt === currentQ.answer;
       setQuizFeedback({ selected: opt, isCorrect });
       
-      // VISUAL FEEDBACK: Update bar immediately
+      // VISUAL FEEDBACK
       if (isCorrect) {
           setViewStage(prev => Math.min(prev + 1, 3));
           setTimeout(() => processResult(true), 600); 
       } else {
-          setViewStage(0); // Visual reset to 0
+          setViewStage(0); // Show regression
       }
   };
 
